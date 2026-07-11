@@ -1,0 +1,2091 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Effort Manifest</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<style>
+  :root{
+    --bg:#12151c;
+    --panel:#1a1f2b;
+    --panel-2:#20263380;
+    --border:#2a3040;
+    --paper:#f0e9d8;
+    --paper-2:#e7ddc4;
+    --ink:#26211a;
+    --ink-soft:#5a4f3c;
+    --orange:#e8622c;
+    --orange-soft:#3a2a20;
+    --teal:#3fab8f;
+    --teal-soft:#1c332e;
+    --text:#edeff4;
+    --text-mute:#8b93a7;
+    --text-dim:#5b6478;
+    --red:#d9534f;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'IBM Plex Sans', sans-serif;
+    padding:32px 24px 64px;
+  }
+  .wrap{max-width:1180px;margin:0 auto;}
+
+  /* ---------- header ---------- */
+  .header{
+    display:flex;
+    justify-content:space-between;
+    align-items:flex-end;
+    border-bottom:2px dashed var(--border);
+    padding-bottom:20px;
+    margin-bottom:28px;
+    gap:20px;
+    flex-wrap:wrap;
+  }
+  .eyebrow{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    letter-spacing:.14em;
+    color:var(--orange);
+    text-transform:uppercase;
+    margin:0 0 8px;
+  }
+  h1{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:32px;
+    font-weight:700;
+    margin:0;
+    letter-spacing:-.01em;
+  }
+  .sub{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--text-mute);
+    margin-top:6px;
+  }
+  .manifest-id{
+    text-align:right;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .manifest-id .label{font-size:11px;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;}
+  .manifest-id .val{font-size:15px;color:var(--text);margin-top:4px;}
+
+  /* ---------- KPI ticket stubs ---------- */
+  .kpi-row{
+    display:grid;
+    grid-template-columns:repeat(4,1fr);
+    gap:16px;
+    margin-bottom:32px;
+  }
+  .ticket{
+    background:var(--paper);
+    color:var(--ink);
+    border-radius:6px;
+    position:relative;
+    padding:16px 18px 18px;
+    font-family:'IBM Plex Mono', monospace;
+    overflow:visible;
+  }
+  .ticket::before, .ticket::after{
+    content:"";
+    position:absolute;
+    width:16px;height:16px;
+    background:var(--bg);
+    border-radius:50%;
+    top:50%;
+    transform:translateY(-50%);
+  }
+  .ticket::before{left:-8px;}
+  .ticket::after{right:-8px;}
+  .ticket .stub-line{
+    position:absolute;
+    left:0;right:0;top:38px;
+    border-top:1.5px dashed var(--ink-soft);
+    opacity:.35;
+  }
+  .ticket .t-label{
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--ink-soft);
+    margin-bottom:6px;
+  }
+  .ticket .t-val{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:26px;
+    font-weight:700;
+    line-height:1;
+    margin-top:14px;
+  }
+  .ticket .t-unit{font-size:13px;font-weight:500;margin-left:4px;color:var(--ink-soft);}
+  .ticket .t-foot{
+    margin-top:8px;
+    font-size:11.5px;
+    color:var(--ink-soft);
+  }
+
+  /* ---------- panels ---------- */
+  .grid-2{display:grid;grid-template-columns:1.15fr 0.85fr;gap:16px;margin-bottom:16px;}
+  .panel{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:20px 22px;
+  }
+  .panel h2{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:15px;
+    font-weight:600;
+    margin:0 0 2px;
+    color:var(--text);
+  }
+  .panel .p-sub{
+    font-size:12px;
+    color:var(--text-mute);
+    margin-bottom:14px;
+    font-family:'IBM Plex Mono', monospace;
+  }
+  .legend{
+    display:flex;flex-wrap:wrap;gap:14px;margin-bottom:10px;font-size:12px;color:var(--text-mute);font-family:'IBM Plex Mono', monospace;
+  }
+  .legend span{display:flex;align-items:center;gap:6px;}
+  .swatch{width:9px;height:9px;border-radius:2px;display:inline-block;}
+
+  /* ---------- filter bar ---------- */
+  .filter-bar{
+    display:flex;align-items:center;gap:10px;margin-bottom:18px;flex-wrap:wrap;
+  }
+  .filter-bar label{font-size:12px;color:var(--text-mute);font-family:'IBM Plex Mono', monospace;letter-spacing:.05em;text-transform:uppercase;}
+  select{
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:7px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    max-width:220px;
+  }
+
+  /* ---------- table ---------- */
+  table{width:100%;border-collapse:collapse;font-size:12.5px;}
+  th{
+    text-align:left;
+    font-family:'IBM Plex Mono', monospace;
+    font-weight:500;
+    font-size:10.5px;
+    letter-spacing:.08em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+    padding:0 8px 8px 0;
+    border-bottom:1px solid var(--border);
+  }
+  td{
+    padding:9px 8px 9px 0;
+    border-bottom:1px solid #232937;
+    color:var(--text);
+    vertical-align:top;
+  }
+  td.num{font-family:'IBM Plex Mono', monospace;color:var(--orange);text-align:right;white-space:nowrap;}
+  td.proj{font-family:'IBM Plex Mono', monospace;color:var(--teal);white-space:nowrap;}
+  .status-pill{
+    display:inline-block;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    padding:2px 8px;
+    border-radius:20px;
+    letter-spacing:.02em;
+  }
+  .s-completed{background:var(--teal-soft);color:var(--teal);}
+  .s-progress{background:var(--orange-soft);color:var(--orange);}
+  .s-pending{background:#2b2a1f;color:#d1b954;}
+  .s-blocked{background:#331f1f;color:var(--red);}
+
+  /* ---------- log ---------- */
+  .log-item{
+    display:flex;
+    gap:14px;
+    padding:12px 0;
+    border-bottom:1px solid #232937;
+  }
+  .log-item:last-child{border-bottom:none;}
+  .log-date{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    min-width:52px;
+    padding-top:2px;
+  }
+  .log-body{flex:1;min-width:0;}
+  .log-top{display:flex;justify-content:space-between;gap:10px;align-items:baseline;}
+  .log-tag{font-family:'IBM Plex Mono', monospace;font-size:11px;color:var(--teal);}
+  .log-min{font-family:'IBM Plex Mono', monospace;font-size:11px;color:var(--orange);white-space:nowrap;}
+  .log-desc{font-size:13px;color:var(--text);margin-top:3px;line-height:1.45;}
+
+  .footnote{
+    text-align:center;
+    color:var(--text-dim);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    margin-top:28px;
+    letter-spacing:.05em;
+  }
+
+  @media (max-width:820px){
+    .kpi-row{grid-template-columns:repeat(2,1fr);}
+    .grid-2{grid-template-columns:1fr;}
+  }
+
+  @media (max-width:600px){
+    body{padding:20px 14px 48px;}
+    .header{align-items:flex-start;}
+    h1{font-size:24px;}
+    .manifest-id{text-align:left;}
+    .kpi-row{grid-template-columns:1fr 1fr;gap:10px;}
+    .ticket{padding:14px 14px 16px;}
+    .ticket .t-val{font-size:22px;}
+    .ticket::before, .ticket::after{display:none;}
+    .panel{padding:16px;}
+    .control-bar{padding:14px;gap:14px;}
+    .control-bar .control-group{width:100%;}
+    .control-bar select, .control-bar input[type="date"], .control-bar input[type="text"], .dropdown-toggle{width:100%;max-width:none;}
+    .dropdown-toggle, .dropdown-menu{min-width:0;}
+    .dropdown-menu{left:0;right:0;max-width:none;}
+    .source-tag, .range-note{margin-left:0;width:100%;}
+    .log-top{flex-direction:column;align-items:flex-start;gap:2px;}
+    .modal-box{padding:18px;}
+    .modal-actions{flex-wrap:wrap;}
+    .modal-actions .btn{flex:1;min-width:110px;}
+  }
+
+  @media (max-width:400px){
+    .kpi-row{grid-template-columns:1fr;}
+    h1{font-size:21px;}
+    .modal-box h3{font-size:16px;}
+  }
+
+  /* ---------- control bar ---------- */
+  .control-bar{
+    display:flex;
+    align-items:flex-end;
+    gap:22px;
+    flex-wrap:wrap;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:16px 20px;
+    margin-bottom:24px;
+  }
+  .control-group{display:flex;flex-direction:column;gap:6px;}
+  .control-group label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:10.5px;
+    letter-spacing:.1em;
+    text-transform:uppercase;
+    color:var(--text-dim);
+  }
+  input[type="date"], input[type="text"]{
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:7px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    color-scheme:dark;
+  }
+  input[type="text"]::placeholder{color:var(--text-dim);}
+  input[type="text"]:focus, input[type="date"]:focus, select:focus{
+    outline:none;
+    border-color:var(--orange);
+  }
+  .btn{
+    background:transparent;
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:8px 14px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    cursor:pointer;
+    letter-spacing:.03em;
+  }
+  .btn:hover{border-color:var(--text-dim);}
+  .btn-upload{
+    background:var(--orange-soft);
+    color:var(--orange);
+    border:1px solid var(--orange-soft);
+    font-weight:500;
+  }
+  .btn-upload:hover{border-color:var(--orange);}
+  #csvFileInput{display:none;}
+
+  .btn-highlight{
+    background:var(--orange);
+    color:#1a1108;
+    border:1px solid var(--orange);
+    font-weight:600;
+    box-shadow:0 0 0 3px var(--orange-soft), 0 2px 10px rgba(232,98,44,0.35);
+  }
+  .btn-highlight:hover{
+    background:#ff7a3d;
+    border-color:#ff7a3d;
+    box-shadow:0 0 0 3px var(--orange-soft), 0 2px 14px rgba(232,98,44,0.5);
+  }
+
+  .btn:disabled, select:disabled, input:disabled, .dropdown-toggle:disabled{
+    opacity:0.4;
+    cursor:not-allowed;
+    pointer-events:none;
+  }
+  .btn-upload:disabled{background:var(--orange-soft);color:var(--orange);}
+
+  .dropdown-toggle{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:10px;
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:7px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12.5px;
+    cursor:pointer;
+    min-width:190px;
+    max-width:220px;
+  }
+  .dropdown-toggle:hover{border-color:var(--text-dim);}
+  .dropdown-toggle.open{border-color:var(--orange);}
+  .dropdown-caret{color:var(--text-dim);font-size:10px;}
+  .dropdown-menu{
+    position:absolute;
+    top:100%;
+    left:0;
+    margin-top:6px;
+    min-width:240px;
+    max-width:320px;
+    max-height:240px;
+    overflow-y:auto;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:8px;
+    box-shadow:0 10px 30px rgba(0,0,0,0.4);
+    z-index:500;
+    padding:6px;
+  }
+  .dropdown-empty{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-dim);
+    padding:10px 8px;
+  }
+  .dropdown-item{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    gap:8px;
+    padding:8px 8px;
+    border-radius:6px;
+    cursor:pointer;
+  }
+  .dropdown-item:hover{background:var(--orange-soft);}
+  .dropdown-item-label{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:12px;
+    color:var(--text);
+    overflow:hidden;
+    text-overflow:ellipsis;
+    white-space:nowrap;
+  }
+  .dropdown-item-delete{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+    padding:2px 6px;
+    border-radius:50%;
+    flex-shrink:0;
+  }
+  .dropdown-item-delete:hover{color:var(--red);background:#2a1a1a;}
+
+  .file-chips{
+    display:flex;
+    flex-wrap:wrap;
+    gap:8px;
+    margin:-12px 0 18px;
+  }
+  .file-chip{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:20px;
+    padding:6px 8px 6px 12px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text);
+  }
+  .file-chip .fc-name{color:var(--teal);max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .file-chip .fc-count{color:var(--text-mute);}
+  .file-chip .fc-remove{
+    background:none;
+    border:none;
+    color:var(--text-dim);
+    cursor:pointer;
+    font-size:14px;
+    line-height:1;
+    padding:2px 4px;
+    border-radius:50%;
+  }
+  .file-chip .fc-remove:hover{color:var(--red);background:#2a1a1a;}
+
+  th.sortable{cursor:pointer;user-select:none;}
+  th.sortable:hover{color:var(--text);}
+  .sort-arrow{font-size:9px;color:var(--orange);}
+
+  .fc-apply{
+    background:none;
+    border:none;
+    color:var(--teal);
+    cursor:pointer;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11px;
+    padding:2px 8px;
+    border-radius:12px;
+  }
+  .fc-apply:hover{background:var(--teal-soft);}
+
+  @media print{
+    body{background:#fff;color:#111;padding:12px;}
+    .control-bar, #filterRow, #exportRow, #dupNote, .loading-overlay, .modal-overlay{display:none !important;}
+    .panel{background:#fff;border:1px solid #ccc;break-inside:avoid;}
+    .ticket{background:#f0e9d8;color:#26211a;}
+    h1, h2{color:#111;}
+    .sub, .p-sub{color:#444;}
+  }
+
+  .loading-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(18,21,28,0.82);
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    gap:16px;
+    z-index:9999;
+  }
+  .spinner{
+    width:42px;height:42px;
+    border:4px solid var(--border);
+    border-top-color:var(--orange);
+    border-radius:50%;
+    animation:el-spin 0.8s linear infinite;
+  }
+  @keyframes el-spin{to{transform:rotate(360deg);}}
+  .loading-text{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:13px;
+    color:var(--text);
+    letter-spacing:.03em;
+  }
+
+  .modal-overlay{
+    position:fixed;
+    inset:0;
+    background:rgba(18,21,28,0.72);
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    z-index:10000;
+    padding:20px;
+  }
+  .modal-box{
+    background:var(--panel);
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:24px;
+    width:100%;
+    max-width:380px;
+    max-height:88vh;
+    overflow-y:auto;
+    box-shadow:0 12px 40px rgba(0,0,0,0.45);
+  }
+  .modal-box h3{
+    font-family:'Space Grotesk', sans-serif;
+    font-size:18px;
+    font-weight:600;
+    margin:0 0 8px;
+    color:var(--text);
+  }
+  .modal-sub{
+    font-size:12.5px;
+    color:var(--text-mute);
+    margin:0 0 16px;
+    line-height:1.5;
+  }
+  .modal-box input[type="text"]{
+    width:100%;
+    box-sizing:border-box;
+  }
+  .modal-error{
+    color:var(--red);
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    margin:8px 0 0;
+  }
+  .modal-actions{
+    display:flex;
+    justify-content:flex-end;
+    gap:10px;
+    margin-top:18px;
+  }
+  .source-tag{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-mute);
+    display:flex;
+    align-items:center;
+    gap:8px;
+  }
+  .source-dot{width:7px;height:7px;border-radius:50%;background:var(--teal);display:inline-block;}
+  .parse-error{
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--red);
+    max-width:260px;
+  }
+  .range-note{
+    margin-left:auto;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    color:var(--text-mute);
+    align-self:center;
+  }
+</style>
+</head>
+<body>
+<div class="loading-overlay" id="loadingOverlay" style="display:none;">
+  <div class="spinner"></div>
+  <div class="loading-text" id="loadingText">Processing files…</div>
+</div>
+<div class="modal-overlay" id="saveFilterModal" style="display:none;">
+  <div class="modal-box">
+    <p class="eyebrow" style="margin-bottom:6px;">Save filter</p>
+    <h3>Name this filter</h3>
+    <p class="modal-sub">Save the current employee, project, nature, date range, and search combination for quick reuse later.</p>
+    <input type="text" id="modalFilterNameInput" placeholder="e.g. My open bugs this month">
+    <p class="modal-error" id="modalFilterError" style="display:none;">Give this filter a name to save it.</p>
+    <div class="modal-actions">
+      <button class="btn" id="modalCancelBtn" type="button">Cancel</button>
+      <button class="btn btn-upload" id="modalConfirmBtn" type="button">Save filter</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="uploadErrorModal" style="display:none;">
+  <div class="modal-box">
+    <p class="eyebrow" style="margin-bottom:6px;color:var(--red);">Upload issue</p>
+    <h3>Some files couldn't be read</h3>
+    <p class="modal-sub" id="uploadErrorText" style="white-space:pre-line;"></p>
+    <div class="modal-actions">
+      <button class="btn btn-upload" id="uploadErrorOkBtn" type="button">OK</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="filesModal" style="display:none;">
+  <div class="modal-box">
+    <p class="eyebrow" style="margin-bottom:6px;">Data source</p>
+    <h3 id="filesModalTitle">Uploaded files</h3>
+    <p class="modal-sub">Remove a single file, or clear everything and start over.</p>
+    <div id="filesModalList" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;margin:14px 0 4px;"></div>
+    <div class="modal-actions" style="justify-content:space-between;">
+      <button class="btn" id="filesModalClearBtn" type="button">Clear all</button>
+      <button class="btn btn-upload" id="filesModalCloseBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+
+  <div class="header">
+    <div>
+      <p class="eyebrow">Effort manifest</p>
+      <h1>Engineering effort dashboard</h1>
+      <p class="sub" id="headerSub">Upload a CSV or Excel file above to populate this dashboard</p>
+    </div>
+    <div class="manifest-id">
+      <div class="label">Manifest no.</div>
+      <div class="val" id="manifestNo">—</div>
+    </div>
+  </div>
+
+  <div class="control-bar">
+    <div class="control-group">
+      <label>Data source</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <label class="btn btn-highlight" for="csvFileInput">Upload CSV / Excel</label>
+        <input type="file" id="csvFileInput" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple>
+        <button class="btn" id="filesButton" type="button" disabled>Uploaded files (0)</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label for="dateFrom">From</label>
+      <input type="date" id="dateFrom" disabled>
+    </div>
+    <div class="control-group">
+      <label for="dateTo">To</label>
+      <input type="date" id="dateTo" disabled>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button class="btn" id="resetRangeBtn" type="button" disabled>Reset range</button>
+    </div>
+    <div class="source-tag" id="sourceTag"><span class="source-dot" style="background:var(--text-dim);"></span>No files loaded yet</div>
+    <div class="range-note" id="rangeNote"></div>
+  </div>
+
+  <div id="dupNote" style="display:none;color:#d1b954;font-family:'IBM Plex Mono', monospace;font-size:11.5px;margin:-10px 0 18px;"></div>
+
+
+  <div class="control-bar" id="filterRow">
+    <div class="control-group">
+      <label for="employeeFilter">Employee</label>
+      <select id="employeeFilter" disabled><option value="ALL">All employees</option></select>
+    </div>
+    <div class="control-group">
+      <label for="projectFilterGlobal">Project</label>
+      <select id="projectFilterGlobal" disabled><option value="ALL">All projects</option></select>
+    </div>
+    <div class="control-group">
+      <label for="natureFilter">Nature of task</label>
+      <select id="natureFilter" disabled><option value="ALL">All natures</option></select>
+    </div>
+    <div class="control-group" style="flex:1;min-width:200px;">
+      <label for="searchBox">Search description / remarks</label>
+      <input type="text" id="searchBox" placeholder="e.g. bug, POD, timeout..." disabled>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button class="btn" id="resetFiltersBtn" type="button" disabled>Reset filters</button>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <button class="btn btn-upload" id="saveFilterBtn" type="button" disabled>Save filter</button>
+    </div>
+    <div class="control-group" id="savedFiltersGroup" style="position:relative;">
+      <label for="savedFiltersToggle">Saved filters</label>
+      <button class="dropdown-toggle" id="savedFiltersToggle" type="button" disabled>
+        <span id="savedFiltersToggleLabel">— Select a saved filter —</span>
+        <span class="dropdown-caret">▾</span>
+      </button>
+      <div class="dropdown-menu" id="savedFiltersMenu" style="display:none;"></div>
+    </div>
+    <div class="range-note" id="filterNote"></div>
+    <div class="range-note" id="savedFilterNote"></div>
+  </div>
+
+  <div class="control-bar" id="exportRow">
+    <div class="control-group">
+      <label>Export current view</label>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <button class="btn" id="exportCsvBtn" type="button" disabled>Download CSV</button>
+        <button class="btn" id="exportPngBtn" type="button" disabled>Download PNG</button>
+        <button class="btn" id="exportPdfBtn" type="button" disabled>Print / Save as PDF</button>
+      </div>
+    </div>
+    <div class="range-note" id="exportNote"></div>
+  </div>
+
+  <div class="kpi-row">
+    <div class="ticket">
+      <div class="t-label">Total effort logged</div>
+      <div class="stub-line"></div>
+      <div class="t-val" id="kpiHours">—<span class="t-unit">hrs</span></div>
+      <div class="t-foot" id="kpiMinutes">— min across 193 entries</div>
+    </div>
+    <div class="ticket">
+      <div class="t-label">Completion rate</div>
+      <div class="stub-line"></div>
+      <div class="t-val" id="kpiCompletion">—<span class="t-unit">%</span></div>
+      <div class="t-foot" id="kpiCompletionFoot">— of 193 tasks closed</div>
+    </div>
+    <div class="ticket">
+      <div class="t-label">Active days</div>
+      <div class="stub-line"></div>
+      <div class="t-val" id="kpiDays">—<span class="t-unit">days</span></div>
+      <div class="t-foot" id="kpiDaysFoot">— avg hrs / day worked</div>
+    </div>
+    <div class="ticket">
+      <div class="t-label">Support tickets</div>
+      <div class="stub-line"></div>
+      <div class="t-val" id="kpiTickets">—</div>
+      <div class="t-foot">Entries with a ticket reference</div>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 id="projectPanelHeading">Effort by project</h2>
+          <p class="p-sub" id="projectPanelSub" style="margin-bottom:0;">Minutes logged per consignment, heaviest freight first</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="control-group">
+            <label for="projectChartDim">Break down by</label>
+            <select id="projectChartDim" disabled>
+              <option value="auto" selected>Auto</option>
+              <option value="project">Project</option>
+              <option value="module">Module / feature</option>
+              <option value="employee">Employee</option>
+              <option value="nature">Task nature</option>
+              <option value="status">Status</option>
+              <option value="ticket">Ticket</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="projectChartMeasure">Measure</label>
+            <select id="projectChartMeasure" disabled>
+              <option value="minutes" selected>Minutes</option>
+              <option value="hours">Hours</option>
+              <option value="count">Task count</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div class="legend" id="projectLegend">
+        <span><span class="swatch" style="background:#e8622c"></span><span id="projectLegendLabel">Effort (minutes)</span></span>
+      </div>
+      <div style="position:relative;height:360px;">
+        <canvas id="projectChart" role="img" aria-label="Horizontal bar chart of total effort minutes by project"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 id="naturePanelHeading">Task nature split</h2>
+          <p class="p-sub" id="naturePanelSub" style="margin-bottom:0;">Where the hours actually went</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="control-group">
+            <label for="natureChartDim">Break down by</label>
+            <select id="natureChartDim" disabled>
+              <option value="nature" selected>Task nature</option>
+              <option value="project">Project</option>
+              <option value="module">Module / feature</option>
+              <option value="employee">Employee</option>
+              <option value="status">Status</option>
+              <option value="ticket">Ticket</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="natureChartMeasure">Measure</label>
+            <select id="natureChartMeasure" disabled>
+              <option value="minutes" selected>Minutes</option>
+              <option value="hours">Hours</option>
+              <option value="count">Task count</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="position:relative;height:230px;margin-bottom:10px;margin-top:10px;">
+        <canvas id="natureChart" role="img" aria-label="Donut chart of effort by task nature"></canvas>
+      </div>
+      <div class="legend" id="natureLegend" style="justify-content:center;"></div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:12px;">
+      <div>
+        <h2 id="trendPanelHeading">Weekly effort trend</h2>
+        <p class="p-sub" id="trendPanelSub" style="margin-bottom:0;">Hours logged per calendar week</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;">
+        <div class="control-group">
+          <label for="trendSplitBy">Split by</label>
+          <select id="trendSplitBy" disabled>
+            <option value="none" selected>None (total)</option>
+            <option value="employee">Employee</option>
+            <option value="project">Project</option>
+            <option value="nature">Task nature</option>
+            <option value="status">Status</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="trendMetric">Metric</label>
+          <select id="trendMetric" disabled>
+            <option value="hours" selected>Hours logged</option>
+            <option value="count">Task count</option>
+          </select>
+        </div>
+        <div class="control-group">
+          <label for="trendGranularity">Group by</label>
+          <select id="trendGranularity" disabled>
+            <option value="day">Day</option>
+            <option value="week" selected>Week</option>
+            <option value="month">Month</option>
+          </select>
+        </div>
+      </div>
+    </div>
+    <div style="position:relative;height:230px;margin-top:14px;">
+      <canvas id="trendChart" role="img" aria-label="Line chart of effort hours over time"></canvas>
+    </div>
+  </div>
+
+  <div class="grid-2">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2 id="statusPanelHeading">Task status</h2>
+          <p class="p-sub" id="statusPanelSub" style="margin-bottom:0;">Count and hours by task status</p>
+        </div>
+        <div style="display:flex;gap:8px;flex-wrap:wrap;">
+          <div class="control-group">
+            <label for="statusChartDim">Break down by</label>
+            <select id="statusChartDim" disabled>
+              <option value="status" selected>Status</option>
+              <option value="project">Project</option>
+              <option value="module">Module / feature</option>
+              <option value="employee">Employee</option>
+              <option value="nature">Task nature</option>
+              <option value="ticket">Ticket</option>
+            </select>
+          </div>
+          <div class="control-group">
+            <label for="statusChartMeasure">Measure</label>
+            <select id="statusChartMeasure" disabled>
+              <option value="count" selected>Task count</option>
+              <option value="minutes">Minutes</option>
+              <option value="hours">Hours</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <div style="position:relative;height:200px;margin-top:10px;">
+        <canvas id="statusChart" role="img" aria-label="Horizontal bar chart of task counts by status"></canvas>
+      </div>
+    </div>
+    <div class="panel">
+      <h2>Top entities by effort</h2>
+      <p class="p-sub" id="tableSub">Highest-effort module / feature entries</p>
+      <div style="max-height:230px;overflow-y:auto;overflow-x:auto;">
+        <table id="entitiesTable" style="min-width:360px;">
+          <thead><tr>
+            <th class="sortable" data-col="project">Project <span class="sort-arrow" data-arrow="project"></span></th>
+            <th class="sortable" data-col="module">Module <span class="sort-arrow" data-arrow="module"></span></th>
+            <th class="sortable" data-col="min" style="text-align:right;">Min <span class="sort-arrow" data-arrow="min"></span></th>
+          </tr></thead>
+          <tbody id="moduleTableBody"></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <h2>Latest manifest entries</h2>
+    <p class="p-sub" id="logPanelSub">Most recent logged tasks</p>
+    <div id="recentLog"></div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2>Full log entries</h2>
+        <p class="p-sub" id="rawTableSub" style="margin-bottom:0;">Every filtered row, every column — click a header to sort</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="control-group">
+          <label for="rawTablePageSize">Rows per page</label>
+          <select id="rawTablePageSize" disabled>
+            <option value="25" selected>25</option>
+            <option value="50">50</option>
+            <option value="100">100</option>
+          </select>
+        </div>
+        <button class="btn" id="rawTableExportBtn" type="button" disabled>Export this table (CSV)</button>
+      </div>
+    </div>
+    <div style="max-height:420px;overflow:auto;margin-top:10px;">
+      <table id="rawTable" style="min-width:860px;">
+        <thead><tr>
+          <th class="sortable" data-rcol="date">Date <span class="sort-arrow" data-rarrow="date"></span></th>
+          <th class="sortable" data-rcol="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span></th>
+          <th class="sortable" data-rcol="project">Project <span class="sort-arrow" data-rarrow="project"></span></th>
+          <th class="sortable" data-rcol="module">Module <span class="sort-arrow" data-rarrow="module"></span></th>
+          <th class="sortable" data-rcol="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span></th>
+          <th class="sortable" data-rcol="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span></th>
+          <th>Description</th>
+          <th class="sortable" data-rcol="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span></th>
+          <th class="sortable" data-rcol="status">Status <span class="sort-arrow" data-rarrow="status"></span></th>
+          <th>Remarks</th>
+        </tr></thead>
+        <tbody id="rawTableBody"></tbody>
+      </table>
+    </div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;flex-wrap:wrap;gap:8px;">
+      <div class="range-note" id="rawTablePageInfo"></div>
+      <div style="display:flex;gap:6px;">
+        <button class="btn" id="rawTablePrevBtn" type="button" disabled>Prev</button>
+        <button class="btn" id="rawTableNextBtn" type="button" disabled>Next</button>
+      </div>
+    </div>
+  </div>
+
+  <p class="footnote" id="footnoteText">Upload a CSV or Excel file to generate this report</p>
+
+</div>
+
+<script>
+const ORANGE = '#e8622c', TEAL='#3fab8f', RED='#d9534f', GOLD='#d1b954';
+const AXIS = '#5b6478', GRID='#232937', TXT='#edeff4';
+const natColors = ['#e8622c','#3fab8f','#d1b954','#7f8cc4','#c46a9e','#6fa8dc','#c9855c','#8a8f9c','#5b6478','#4a5568'];
+const statusOrder = ['Completed','In Progress','Pending','Blocked'];
+const statusColors = {Completed:TEAL, 'In Progress':ORANGE, Pending:GOLD, Blocked:RED};
+const statusClass = {Completed:'s-completed', 'In Progress':'s-progress', Pending:'s-pending', Blocked:'s-blocked'};
+
+let ACTIVE_DATA = [];
+let ACTIVE_SOURCE = 'No file loaded yet';
+
+const charts = {};
+
+function sum(arr, fn){ return arr.reduce((a,b)=>a+fn(b),0); }
+function groupSum(arr, keyFn){
+  const m = {};
+  arr.forEach(r=>{ const k=keyFn(r); m[k]=(m[k]||0)+r.effort; });
+  return m;
+}
+function groupCount(arr, keyFn){
+  const m = {};
+  arr.forEach(r=>{ const k=keyFn(r); m[k]=(m[k]||0)+1; });
+  return m;
+}
+function destroy(id){ if(charts[id]){ charts[id].destroy(); charts[id]=null; } }
+
+// ---- adjustable chart fields: available grouping dimensions + measures ----
+const DIMENSIONS = {
+  project:  { label: 'Project',           get: d => d.project || 'UNKNOWN' },
+  module:   { label: 'Module / feature',  get: d => d.module || '—' },
+  employee: { label: 'Employee',          get: d => d.employee || 'Unspecified' },
+  nature:   { label: 'Task nature',       get: d => d.nature || 'Unspecified' },
+  status:   { label: 'Status',            get: d => d.status || 'Unspecified' },
+  ticket:   { label: 'Ticket',            get: d => d.ticket || 'No ticket' }
+};
+const MEASURES = {
+  minutes: { label: 'Minutes', unit: 'min', suffix: '', get: (min,cnt) => Math.round(min) },
+  hours:   { label: 'Hours',   unit: 'hrs', suffix: 'h', get: (min,cnt) => +(min/60).toFixed(1) },
+  count:   { label: 'Task count', unit: 'tasks', suffix: '', get: (min,cnt) => cnt }
+};
+// groups `data` by a DIMENSIONS key, returns entries [label, measureValue] sorted desc, plus totals for tooltips.
+// high-cardinality dims (module/employee/ticket) get folded into a Top-N + "Other" bucket so the chart stays readable.
+function buildBreakdown(data, dimKey, measureKey, topN){
+  const dim = DIMENSIONS[dimKey], measure = MEASURES[measureKey];
+  const minutesByKey = groupSum(data, dim.get);
+  const countByKey = groupCount(data, dim.get);
+  let entries = Object.keys(minutesByKey).map(k => [k, measure.get(minutesByKey[k], countByKey[k])]);
+  entries.sort((a,b)=>b[1]-a[1]);
+  if(topN && entries.length > topN){
+    const kept = entries.slice(0, topN);
+    const rest = entries.slice(topN);
+    const otherMin = sum(rest, e => minutesByKey[e[0]]);
+    const otherCnt = sum(rest, e => countByKey[e[0]]);
+    minutesByKey['Other (' + rest.length + ')'] = otherMin;
+    countByKey['Other (' + rest.length + ')'] = otherCnt;
+    kept.push(['Other (' + rest.length + ')', measure.get(otherMin, otherCnt)]);
+    entries = kept;
+  }
+  const total = sum(entries, e=>e[1]);
+  return { entries, minutesByKey, countByKey, total, dim, measure };
+}
+
+// ---- flexible CSV -> record mapping ----
+const MONTHS = {jan:0,feb:1,mar:2,apr:3,may:4,jun:5,jul:6,aug:7,sep:8,oct:9,nov:10,dec:11};
+
+function parseDateFlexible(str){
+  if(!str) return null;
+  str = String(str).trim();
+  let m = str.match(/^(\d{1,2})[-\/]([A-Za-z]{3,})[-\/](\d{2,4})$/);
+  if(m){
+    const day = +m[1];
+    const mon = MONTHS[m[2].slice(0,3).toLowerCase()];
+    const yr = m[3].length===2 ? 2000+(+m[3]) : +m[3];
+    if(mon!==undefined) return new Date(Date.UTC(yr, mon, day));
+  }
+  m = str.match(/^(\d{4})-(\d{1,2})-(\d{1,2})/);
+  if(m) return new Date(Date.UTC(+m[1], +m[2]-1, +m[3]));
+  m = str.match(/^(\d{1,2})[\/\-](\d{1,2})[\/\-](\d{2,4})$/);
+  if(m){
+    const yr = m[3].length===2 ? 2000+(+m[3]) : +m[3];
+    return new Date(Date.UTC(yr, +m[1]-1, +m[2]));
+  }
+  const d = new Date(str);
+  return isNaN(d) ? null : d;
+}
+
+function findHeader(headers, needles){
+  return headers.find(h => {
+    const low = h.toLowerCase();
+    return needles.some(n => low.includes(n));
+  });
+}
+
+function csvRowsToRecords(rows, fileName){
+  if(!rows.length) return { records: [], error: 'The file has no data rows.' };
+  const headers = Object.keys(rows[0]);
+  const dateH = findHeader(headers, ['date']);
+  const employeeH = findHeader(headers, ['employee']);
+  const projH = findHeader(headers, ['project']);
+  const moduleH = findHeader(headers, ['module', 'feature']);
+  const natureH = findHeader(headers, ['nature']);
+  const ticketH = findHeader(headers, ['ticket']);
+  const descH = findHeader(headers, ['effort description', 'task progress', 'description']);
+  const effortH = findHeader(headers, ['effort']);
+  const statusH = findHeader(headers, ['status']);
+  const remarksH = findHeader(headers, ['remark']);
+
+  if(!dateH || !effortH){
+    return { records: [], error: 'Could not find a Date column and an Effort (Minutes) column in this file. Expected a header row like the sample effort log.' };
+  }
+
+  const records = [];
+  rows.forEach(row=>{
+    const rawDate = row[dateH];
+    if(!rawDate) return;
+    const d = parseDateFlexible(rawDate);
+    if(!d) return;
+    const effortRaw = row[effortH];
+    const effort = parseFloat(String(effortRaw).replace(/[^0-9.\-]/g,''));
+    if(isNaN(effort)) return;
+    records.push({
+      date: d.toISOString().slice(0,10),
+      dateDisp: d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}),
+      employee: (employeeH && row[employeeH]) ? row[employeeH] : 'Unspecified',
+      project: (projH ? row[projH] : 'UNKNOWN') || 'UNKNOWN',
+      module: (moduleH ? row[moduleH] : '') || '',
+      nature: (natureH ? row[natureH] : '') || 'Unspecified',
+      ticket: (ticketH && row[ticketH]) ? row[ticketH] : null,
+      desc: (descH ? row[descH] : '') || '',
+      effort: effort,
+      status: (statusH ? row[statusH] : '') || 'Unspecified',
+      remarks: (remarksH && row[remarksH]) ? row[remarksH] : null,
+      sourceFile: fileName
+    });
+  });
+  records.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  return { records, error: records.length ? null : 'None of the rows had a readable date and effort value.' };
+}
+
+// ---- date range controls ----
+const dateFromEl = document.getElementById('dateFrom');
+const dateToEl = document.getElementById('dateTo');
+const rangeNoteEl = document.getElementById('rangeNote');
+const sourceTagEl = document.getElementById('sourceTag');
+
+const uploadErrorModalEl = document.getElementById('uploadErrorModal');
+const uploadErrorTextEl = document.getElementById('uploadErrorText');
+function showUploadErrorModal(message){
+  uploadErrorTextEl.textContent = message;
+  uploadErrorModalEl.style.display = 'flex';
+}
+function closeUploadErrorModal(){
+  uploadErrorModalEl.style.display = 'none';
+}
+document.getElementById('uploadErrorOkBtn').addEventListener('click', closeUploadErrorModal);
+uploadErrorModalEl.addEventListener('click', (e)=>{
+  if(e.target === uploadErrorModalEl) closeUploadErrorModal();
+});
+
+function setDateBoundsFromData(data){
+  if(!data.length){ dateFromEl.value=''; dateToEl.value=''; return; }
+  const dates = data.map(d=>d.date).sort();
+  dateFromEl.min = dates[0]; dateFromEl.max = dates[dates.length-1];
+  dateToEl.min = dates[0]; dateToEl.max = dates[dates.length-1];
+  dateFromEl.value = dates[0];
+  dateToEl.value = dates[dates.length-1];
+}
+
+function getDateFiltered(){
+  const from = dateFromEl.value, to = dateToEl.value;
+  return ACTIVE_DATA.filter(d=>{
+    if(from && d.date < from) return false;
+    if(to && d.date > to) return false;
+    return true;
+  });
+}
+
+// ---- employee / project / nature filters ----
+const employeeFilterEl = document.getElementById('employeeFilter');
+const projectFilterEl = document.getElementById('projectFilterGlobal');
+const natureFilterEl = document.getElementById('natureFilter');
+const searchBoxEl = document.getElementById('searchBox');
+const filterNoteEl = document.getElementById('filterNote');
+
+function fillSelect(sel, values, allLabel){
+  const current = sel.value || 'ALL';
+  sel.innerHTML = '';
+  const optAll = document.createElement('option');
+  optAll.value = 'ALL'; optAll.textContent = allLabel;
+  sel.appendChild(optAll);
+  values.forEach(v=>{
+    const o = document.createElement('option');
+    o.value = v; o.textContent = v;
+    sel.appendChild(o);
+  });
+  sel.value = values.includes(current) ? current : 'ALL';
+}
+
+function populateFacetFilters(data){
+  fillSelect(employeeFilterEl, Array.from(new Set(data.map(d=>d.employee))).filter(Boolean).sort(), 'All employees');
+  fillSelect(projectFilterEl, Array.from(new Set(data.map(d=>d.project))).filter(Boolean).sort(), 'All projects');
+  fillSelect(natureFilterEl, Array.from(new Set(data.map(d=>d.nature))).filter(Boolean).sort(), 'All natures');
+}
+
+function getFiltered(){
+  const dateFiltered = getDateFiltered();
+  const emp = employeeFilterEl.value, proj = projectFilterEl.value, nat = natureFilterEl.value;
+  const term = (searchBoxEl.value || '').trim().toLowerCase();
+  return dateFiltered.filter(d=>{
+    if(emp!=='ALL' && d.employee!==emp) return false;
+    if(proj!=='ALL' && d.project!==proj) return false;
+    if(nat!=='ALL' && d.nature!==nat) return false;
+    if(term){
+      const hay = ((d.desc||'') + ' ' + (d.remarks||'')).toLowerCase();
+      if(!hay.includes(term)) return false;
+    }
+    return true;
+  });
+}
+
+function activeFacetFilters(){
+  const parts = [];
+  if(employeeFilterEl.value!=='ALL') parts.push({label:'Employee', value:employeeFilterEl.value});
+  if(projectFilterEl.value!=='ALL') parts.push({label:'Project', value:projectFilterEl.value});
+  if(natureFilterEl.value!=='ALL') parts.push({label:'Nature', value:natureFilterEl.value});
+  if(searchBoxEl.value.trim()) parts.push({label:'Search', value:searchBoxEl.value.trim()});
+  return parts;
+}
+function filterSummaryText(){
+  const parts = activeFacetFilters();
+  return parts.length ? parts.map(p=>p.label+': '+p.value).join(' · ') : '';
+}
+
+// ---- KPIs + charts + table + log ----
+function renderAll(){
+  const data = getFiltered();
+  const total = ACTIVE_DATA.length;
+  const summary = filterSummaryText();
+
+  rangeNoteEl.textContent = getDateFiltered().length + ' of ' + total + ' entries in date range';
+  filterNoteEl.textContent = summary ? (data.length + ' entries match: ' + summary) : (data.length + ' entries (no facet filters applied)');
+
+  document.getElementById('headerSub').textContent = data.length
+    ? (data[0].dateDisp + ' → ' + data[data.length-1].dateDisp + ' · ' + new Set(data.map(d=>d.project)).size + ' project(s)' + (summary ? ' · ' + summary : ''))
+    : (ACTIVE_DATA.length ? 'No entries match the current filters' : 'Upload a CSV or Excel file above to populate this dashboard');
+
+  if(!data.length){
+    ['kpiHours','kpiCompletion','kpiDays','kpiTickets'].forEach(id=>document.getElementById(id).innerHTML = '0');
+    document.getElementById('kpiMinutes').textContent = '0 min across 0 entries';
+    document.getElementById('kpiCompletionFoot').textContent = '0 of 0 tasks closed';
+    document.getElementById('kpiDaysFoot').textContent = '0 avg hrs / day worked';
+    ['projectChart','natureChart','trendChart','statusChart'].forEach(destroy);
+    document.getElementById('natureLegend').innerHTML = '';
+    document.getElementById('moduleTableBody').innerHTML = '';
+    document.getElementById('recentLog').innerHTML = '';
+    document.getElementById('rawTableBody').innerHTML = '';
+    document.getElementById('rawTablePageInfo').textContent = '';
+    document.getElementById('rawTableSub').textContent = 'Every filtered row, every column — click a header to sort';
+    return;
+  }
+
+  // KPIs
+  const totalMin = sum(data, d=>d.effort);
+  const totalHrs = totalMin/60;
+  document.getElementById('kpiHours').innerHTML = totalHrs.toFixed(1) + '<span class="t-unit">hrs</span>';
+  document.getElementById('kpiMinutes').textContent = Math.round(totalMin).toLocaleString() + ' min across ' + data.length + ' entries';
+
+  const completed = data.filter(d=>d.status==='Completed').length;
+  const compRate = completed/data.length*100;
+  document.getElementById('kpiCompletion').innerHTML = compRate.toFixed(1) + '<span class="t-unit">%</span>';
+  document.getElementById('kpiCompletionFoot').textContent = completed + ' of ' + data.length + ' tasks closed';
+
+  const daysSet = new Set(data.map(d=>d.date));
+  const activeDays = daysSet.size;
+  const avgPerDay = totalHrs/activeDays;
+  document.getElementById('kpiDays').innerHTML = activeDays + '<span class="t-unit">days</span>';
+  document.getElementById('kpiDaysFoot').textContent = avgPerDay.toFixed(1) + ' avg hrs / day worked';
+
+  const ticketCount = data.filter(d=>d.ticket).length;
+  document.getElementById('kpiTickets').textContent = ticketCount;
+
+  // ---- Project / entity chart (dimension + measure fully adjustable) ----
+  const projectLocked = projectFilterEl.value !== 'ALL';
+  const projectDimSelection = projectChartDimEl.value; // 'auto' or explicit DIMENSIONS key
+  const projectDimKey = projectDimSelection === 'auto'
+    ? (projectLocked ? 'module' : 'project')
+    : projectDimSelection;
+  const projectMeasureKey = projectChartMeasureEl.value;
+  const { entries: dimEntries, minutesByKey: dimMinutes, countByKey: dimCount, total: dimTotal, dim: projDim, measure: projMeasure } =
+    buildBreakdown(data, projectDimKey, projectMeasureKey, 15);
+  const dimLabel = projDim.label.toLowerCase();
+
+  document.getElementById('projectPanelHeading').textContent = (projectDimSelection === 'auto' && projectLocked)
+    ? 'Effort by entity — ' + projectFilterEl.value
+    : 'Effort by ' + dimLabel;
+  document.getElementById('projectPanelSub').textContent = (projectDimSelection === 'auto' && projectLocked)
+    ? projMeasure.label + ' logged per module / feature within ' + projectFilterEl.value
+    : projMeasure.label + ' logged per ' + dimLabel + ', heaviest freight first';
+  document.getElementById('projectLegendLabel').textContent = 'Effort (' + projMeasure.label.toLowerCase() + ')';
+  document.getElementById('projectChart').setAttribute('aria-label',
+    'Horizontal bar chart of effort ' + projMeasure.label.toLowerCase() + ' by ' + dimLabel + (summary ? ', filtered to ' + summary : ''));
+
+  destroy('projectChart');
+  charts.projectChart = new Chart(document.getElementById('projectChart'), {
+    type: 'bar',
+    data: { labels: dimEntries.map(e=>e[0]), datasets: [{ data: dimEntries.map(e=>e[1]), backgroundColor: ORANGE, borderRadius: 4, maxBarThickness: 18 }] },
+    options: {
+      indexAxis: 'y', responsive: true, maintainAspectRatio: false,
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c => {
+        const label = c.label, val = c.parsed.x, cnt = dimCount[label]||0, min = dimMinutes[label]||0, pct = dimTotal ? (val/dimTotal*100) : 0;
+        return [val + ' ' + projMeasure.unit + ' (' + (min/60).toFixed(1) + ' hrs total)', pct.toFixed(0) + '% of ' + dimLabel + ' total', cnt + ' task' + (cnt===1?'':'s')];
+      } } } },
+      scales: {
+        x: { grid:{color:GRID}, ticks:{color:AXIS, font:{family:"IBM Plex Mono", size:10.5}} },
+        y: { grid:{display:false}, ticks:{color:TXT, font:{family:"IBM Plex Mono", size:11}} }
+      }
+    }
+  });
+
+  // ---- Donut chart (dimension + measure fully adjustable) ----
+  const natDimKey = natureChartDimEl.value;
+  const natMeasureKey = natureChartMeasureEl.value;
+  const { entries: natEntries, minutesByKey: natMinutes, countByKey: natCount, total: natTotal, dim: natDim, measure: natMeasure } =
+    buildBreakdown(data, natDimKey, natMeasureKey, 10);
+  const natDimLabel = natDim.label.toLowerCase();
+  document.getElementById('naturePanelHeading').textContent = natDimKey === 'nature' ? 'Task nature split' : natDim.label + ' split';
+  document.getElementById('naturePanelSub').textContent = natMeasure.label + ' by ' + natDimLabel + (summary ? ' — ' + summary : '');
+  document.getElementById('natureChart').setAttribute('aria-label', 'Donut chart of ' + natMeasure.label.toLowerCase() + ' by ' + natDimLabel + (summary ? ', filtered to ' + summary : ''));
+  destroy('natureChart');
+  charts.natureChart = new Chart(document.getElementById('natureChart'), {
+    type: 'doughnut',
+    data: { labels: natEntries.map(e=>e[0]), datasets: [{ data: natEntries.map(e=>e[1]), backgroundColor: natColors, borderColor: '#1a1f2b', borderWidth: 2 }] },
+    options: {
+      responsive:true, maintainAspectRatio:false, cutout:'62%',
+      plugins: { legend:{display:false}, tooltip:{ callbacks:{ label: c => {
+        const val = c.parsed, cnt = natCount[c.label]||0, min = natMinutes[c.label]||0;
+        return [c.label + ': ' + val + ' ' + natMeasure.unit + ' (' + (min/60).toFixed(1) + ' hrs total)', (val/natTotal*100).toFixed(0) + '% of total · ' + cnt + ' task' + (cnt===1?'':'s')];
+      } } } }
+    }
+  });
+  const natLegend = document.getElementById('natureLegend');
+  natLegend.innerHTML = '';
+  natEntries.slice(0,6).forEach((e,i)=>{
+    const pct = (e[1]/natTotal*100).toFixed(0);
+    const el = document.createElement('span');
+    el.innerHTML = '<span class="swatch" style="background:'+natColors[i]+'"></span>' + e[0] + ' ' + pct + '%';
+    natLegend.appendChild(el);
+  });
+
+  // ---- Effort trend (day / week / month, metric + optional split-by dimension all adjustable) ----
+  const granularity = trendGranularityEl.value;
+  const trendMetricKey = trendMetricEl.value; // 'hours' or 'count'
+  const trendSplitKey = trendSplitByEl.value; // 'none' or a DIMENSIONS key
+  function weekStart(dateStr){
+    const d = new Date(dateStr+'T00:00:00Z');
+    const day = d.getUTCDay();
+    const diff = (day===0? -6 : 1) - day;
+    d.setUTCDate(d.getUTCDate()+diff);
+    return d;
+  }
+  function trendKeyAndLabel(dateStr){
+    if(granularity==='day'){
+      const d = new Date(dateStr+'T00:00:00Z');
+      return { key: dateStr, label: d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}) };
+    }
+    if(granularity==='month'){
+      const key = dateStr.slice(0,7);
+      const d = new Date(key+'-01T00:00:00Z');
+      return { key, label: d.toLocaleDateString('en-GB', {month:'short', year:'2-digit', timeZone:'UTC'}) };
+    }
+    const ws = weekStart(dateStr);
+    const key = ws.toISOString().slice(0,10);
+    return { key, label: ws.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}) };
+  }
+  const byTrend = {}, byTrendCount = {}, trendLabels = {};
+  data.forEach(r=>{
+    const { key, label } = trendKeyAndLabel(r.date);
+    byTrend[key] = (byTrend[key]||0) + r.effort;
+    byTrendCount[key] = (byTrendCount[key]||0) + 1;
+    trendLabels[key] = label;
+  });
+  const trendKeys = Object.keys(byTrend).sort();
+  const trendChartLabels = trendKeys.map(k=>trendLabels[k]);
+  const granularityNoun = granularity==='day' ? 'day' : granularity==='month' ? 'month' : 'calendar week';
+  const metricNoun = trendMetricKey==='count' ? 'tasks logged' : 'hours logged';
+  const splitting = trendSplitKey !== 'none';
+  const granularityHeading = (granularity==='day' ? 'Daily' : granularity==='month' ? 'Monthly' : 'Weekly')
+    + (trendMetricKey==='count' ? ' task trend' : ' effort trend') + (splitting ? ' by ' + DIMENSIONS[trendSplitKey].label.toLowerCase() : '');
+  document.getElementById('trendPanelHeading').textContent = granularityHeading;
+  document.getElementById('trendPanelSub').textContent = metricNoun.charAt(0).toUpperCase()+metricNoun.slice(1) + ' per ' + granularityNoun + (summary ? ' — ' + summary : '');
+  document.getElementById('trendChart').setAttribute('aria-label', granularityHeading + (summary ? ', filtered to ' + summary : ''));
+  destroy('trendChart');
+
+  let trendDatasets;
+  if(!splitting){
+    trendDatasets = [{
+      label: 'Total',
+      data: trendKeys.map(k=> trendMetricKey==='count' ? byTrendCount[k] : +(byTrend[k]/60).toFixed(1)),
+      borderColor: TEAL, backgroundColor: 'rgba(63,171,143,0.1)', fill:true,
+      tension: 0.3, borderWidth:2, pointRadius:4, pointBackgroundColor:TEAL, pointBorderColor:'#1a1f2b', pointBorderWidth:2
+    }];
+  } else {
+    const dim = DIMENSIONS[trendSplitKey];
+    // rank series by total effort so the busiest 6 get their own line; everything else folds into "Other"
+    const totalsBySeries = groupSum(data, dim.get);
+    const rankedSeries = Object.entries(totalsBySeries).sort((a,b)=>b[1]-a[1]).map(e=>e[0]);
+    const MAX_SERIES = 6;
+    const topSeries = rankedSeries.slice(0, MAX_SERIES);
+    const hasOther = rankedSeries.length > MAX_SERIES;
+    const seriesNames = hasOther ? [...topSeries, 'Other'] : topSeries;
+    const seriesColors = [ORANGE, TEAL, GOLD, '#7f8cc4', '#c46a9e', '#6fa8dc', AXIS];
+    const perSeriesByKey = {}; // seriesName -> { trendKey -> {min, cnt} }
+    seriesNames.forEach(name => { perSeriesByKey[name] = {}; });
+    data.forEach(r=>{
+      const raw = dim.get(r);
+      const name = topSeries.includes(raw) ? raw : (hasOther ? 'Other' : raw);
+      const { key } = trendKeyAndLabel(r.date);
+      if(!perSeriesByKey[name][key]) perSeriesByKey[name][key] = { min:0, cnt:0 };
+      perSeriesByKey[name][key].min += r.effort;
+      perSeriesByKey[name][key].cnt += 1;
+    });
+    trendDatasets = seriesNames.map((name,i)=>({
+      label: name,
+      data: trendKeys.map(k => {
+        const cell = perSeriesByKey[name][k];
+        if(!cell) return 0;
+        return trendMetricKey==='count' ? cell.cnt : +(cell.min/60).toFixed(1);
+      }),
+      borderColor: seriesColors[i % seriesColors.length], backgroundColor: 'transparent', fill:false,
+      tension: 0.3, borderWidth:2, pointRadius:3,
+      pointBackgroundColor: seriesColors[i % seriesColors.length], pointBorderColor:'#1a1f2b', pointBorderWidth:1
+    }));
+  }
+
+  charts.trendChart = new Chart(document.getElementById('trendChart'), {
+    type: 'line',
+    data: { labels: trendChartLabels, datasets: trendDatasets },
+    options: {
+      responsive:true, maintainAspectRatio:false,
+      plugins:{
+        legend:{ display: splitting, position:'bottom', labels:{ color:TXT, font:{family:"IBM Plex Mono", size:10.5}, boxWidth:12 } },
+        tooltip:{ callbacks:{ label: c => {
+          const val = c.parsed.y;
+          return c.dataset.label + ': ' + val + (trendMetricKey==='count' ? ' task' + (val===1?'':'s') : ' hrs');
+        } } }
+      },
+      scales:{
+        x:{ grid:{display:false}, ticks:{color:AXIS, font:{family:"IBM Plex Mono", size:10.5}, autoSkip: granularity!=='day', maxRotation: 45} },
+        y:{ grid:{color:GRID}, ticks:{color:AXIS, font:{family:"IBM Plex Mono", size:10.5}, callback: v => trendMetricKey==='count' ? v : v+'h'} }
+      }
+    }
+  });
+
+  // ---- Bottom-right breakdown chart (dimension + measure fully adjustable) ----
+  const statusDimKey = statusChartDimEl.value;
+  const statusMeasureKey = statusChartMeasureEl.value;
+  const useStatusOrder = statusDimKey === 'status';
+  const { entries: statusEntries, minutesByKey: statusMinutes, countByKey: statusCounts, dim: statusDim, measure: statusMeasure } =
+    buildBreakdown(data, statusDimKey, statusMeasureKey, 15);
+  // preserve the canonical Completed/In Progress/Pending/Blocked order + colors when grouping by status
+  const statusLabels = useStatusOrder ? statusOrder : statusEntries.map(e=>e[0]);
+  const statusValueByLabel = Object.fromEntries(statusEntries);
+  const statusBarColors = useStatusOrder
+    ? statusOrder.map(s=>statusColors[s])
+    : statusLabels.map((_,i)=>natColors[i % natColors.length]);
+  const statusDimLabel = statusDim.label.toLowerCase();
+  document.getElementById('statusPanelHeading').textContent = useStatusOrder ? 'Task status' : statusDim.label + ' breakdown';
+  document.getElementById('statusPanelSub').textContent = statusMeasure.label + ' by ' + statusDimLabel + (summary ? ' — ' + summary : '');
+  document.getElementById('statusChart').setAttribute('aria-label', 'Horizontal bar chart of ' + statusMeasure.label.toLowerCase() + ' by ' + statusDimLabel + (summary ? ', filtered to ' + summary : ''));
+  destroy('statusChart');
+  charts.statusChart = new Chart(document.getElementById('statusChart'), {
+    type:'bar',
+    data:{ labels: statusLabels, datasets:[{ data: statusLabels.map(s=>statusValueByLabel[s]||0), backgroundColor: statusBarColors, borderRadius:4, maxBarThickness:22 }] },
+    options:{
+      indexAxis:'y', responsive:true, maintainAspectRatio:false,
+      plugins:{ legend:{display:false}, tooltip:{ callbacks:{ label: c => {
+        const s = c.label, val = c.parsed.x, cnt = statusCounts[s]||0, min = statusMinutes[s]||0, pct = data.length ? (cnt/data.length*100) : 0;
+        return [val + ' ' + statusMeasure.unit + ' (' + pct.toFixed(0) + '% of tasks)', cnt + ' task' + (cnt===1?'':'s') + ' · ' + (min/60).toFixed(1) + ' hrs logged'];
+      } } } },
+      scales:{
+        x:{ grid:{color:GRID}, ticks:{color:AXIS, font:{family:"IBM Plex Mono", size:10.5}} },
+        y:{ grid:{display:false}, ticks:{color:TXT, font:{family:"IBM Plex Mono", size:11}} }
+      }
+    }
+  });
+
+  renderModuleTable(data);
+  renderRecentLog(data, summary);
+  renderRawTable(data, summary);
+}
+
+// ---- top entities table (reflects all active filters) ----
+let tableSortCol = 'min';
+let tableSortDir = 'desc';
+
+function renderModuleTable(data){
+  const tbody = document.getElementById('moduleTableBody');
+  const sub = document.getElementById('tableSub');
+  const byModule = {};
+  data.forEach(r=>{
+    const key = r.project + '||' + (r.module || '—');
+    if(!byModule[key]) byModule[key] = { project: r.project, module: r.module || '—', min: 0 };
+    byModule[key].min += r.effort;
+  });
+  let rows = Object.values(byModule);
+  rows.sort((a,b)=>{
+    let av, bv;
+    if(tableSortCol==='min'){ av=a.min; bv=b.min; }
+    else { av=String(a[tableSortCol]).toLowerCase(); bv=String(b[tableSortCol]).toLowerCase(); }
+    if(av<bv) return tableSortDir==='asc' ? -1 : 1;
+    if(av>bv) return tableSortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  rows = rows.slice(0,25);
+  tbody.innerHTML = '';
+  rows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td class="proj">'+r.project+'</td><td>'+r.module+'</td><td class="num">'+Math.round(r.min)+'</td>';
+    tbody.appendChild(tr);
+  });
+  const summary = filterSummaryText();
+  sub.textContent = summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol;
+
+  document.querySelectorAll('#entitiesTable .sort-arrow').forEach(el=>{
+    el.textContent = el.dataset.arrow === tableSortCol ? (tableSortDir==='asc' ? '▲' : '▼') : '';
+  });
+}
+
+document.querySelectorAll('#entitiesTable th.sortable').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.col;
+    if(tableSortCol === col){ tableSortDir = tableSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { tableSortCol = col; tableSortDir = col === 'min' ? 'desc' : 'asc'; }
+    renderModuleTable(getFiltered());
+  });
+});
+
+
+// ---- recent log ----
+function renderRecentLog(data, summary){
+  const recent = data.slice(-8).reverse();
+  const logEl = document.getElementById('recentLog');
+  document.getElementById('logPanelSub').textContent = summary ? 'Most recent logged tasks — ' + summary : 'Most recent logged tasks';
+  logEl.innerHTML = '';
+  recent.forEach(r=>{
+    const item = document.createElement('div');
+    item.className = 'log-item';
+    item.innerHTML =
+      '<div class="log-date">'+r.dateDisp+'</div>'+
+      '<div class="log-body">'+
+        '<div class="log-top">'+
+          '<span class="log-tag">'+r.employee+' · '+r.project+' · '+(r.module||'—')+'</span>'+
+          '<span class="log-min">'+Math.round(r.effort)+' min</span>'+
+        '</div>'+
+        '<div class="log-desc">'+(r.desc||'')+' <span class="status-pill '+(statusClass[r.status]||'')+'">'+r.status+'</span></div>'+
+      '</div>';
+    logEl.appendChild(item);
+  });
+}
+
+// ---- full raw log table: every column, sortable, paginated ----
+function escHtml(v){
+  return String(v==null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+let rawTableSortCol = 'date', rawTableSortDir = 'desc', rawTablePage = 1, lastRawFilterKey = '';
+function renderRawTable(data, summary){
+  // reset to page 1 only when the underlying filtered set actually changed (not on sort/pagination clicks)
+  const filterKey = JSON.stringify([employeeFilterEl.value, projectFilterEl.value, natureFilterEl.value, searchBoxEl.value, dateFromEl.value, dateToEl.value]);
+  if(filterKey !== lastRawFilterKey){ rawTablePage = 1; lastRawFilterKey = filterKey; }
+
+  const sorted = data.slice().sort((a,b)=>{
+    let av, bv;
+    if(rawTableSortCol==='effort'){ av=a.effort; bv=b.effort; }
+    else { av=String(a[rawTableSortCol]||'').toLowerCase(); bv=String(b[rawTableSortCol]||'').toLowerCase(); }
+    if(av<bv) return rawTableSortDir==='asc' ? -1 : 1;
+    if(av>bv) return rawTableSortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+
+  const pageSize = +document.getElementById('rawTablePageSize').value || 25;
+  const totalPages = Math.max(1, Math.ceil(sorted.length / pageSize));
+  if(rawTablePage > totalPages) rawTablePage = totalPages;
+  const startIdx = (rawTablePage-1) * pageSize;
+  const pageRows = sorted.slice(startIdx, startIdx + pageSize);
+
+  const tbody = document.getElementById('rawTableBody');
+  tbody.innerHTML = '';
+  pageRows.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+escHtml(r.dateDisp)+'</td>'+
+      '<td>'+escHtml(r.employee)+'</td>'+
+      '<td class="proj">'+escHtml(r.project)+'</td>'+
+      '<td>'+escHtml(r.module||'—')+'</td>'+
+      '<td>'+escHtml(r.nature)+'</td>'+
+      '<td>'+escHtml(r.ticket||'—')+'</td>'+
+      '<td>'+escHtml(r.desc||'')+'</td>'+
+      '<td class="num">'+Math.round(r.effort)+'</td>'+
+      '<td><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span></td>'+
+      '<td>'+escHtml(r.remarks||'')+'</td>';
+    tbody.appendChild(tr);
+  });
+
+  document.getElementById('rawTableSub').textContent = (summary ? sorted.length + ' rows match: ' + summary : sorted.length + ' rows (no facet filters applied)') + ' — click a header to sort';
+  document.getElementById('rawTablePageInfo').textContent = sorted.length
+    ? 'Showing ' + (startIdx+1) + '–' + Math.min(startIdx+pageSize, sorted.length) + ' of ' + sorted.length + ' rows (page ' + rawTablePage + ' of ' + totalPages + ')'
+    : 'No rows match the current filters';
+  document.getElementById('rawTablePrevBtn').disabled = rawTablePage <= 1;
+  document.getElementById('rawTableNextBtn').disabled = rawTablePage >= totalPages;
+
+  document.querySelectorAll('#rawTable .sort-arrow').forEach(el=>{
+    el.textContent = el.dataset.rarrow === rawTableSortCol ? (rawTableSortDir==='asc' ? '▲' : '▼') : '';
+  });
+}
+
+document.querySelectorAll('#rawTable th.sortable').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.rcol;
+    if(rawTableSortCol === col){ rawTableSortDir = rawTableSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { rawTableSortCol = col; rawTableSortDir = col === 'effort' ? 'desc' : 'asc'; }
+    rawTablePage = 1;
+    renderRawTable(getFiltered(), filterSummaryText());
+  });
+});
+document.getElementById('rawTablePageSize').addEventListener('change', ()=>{
+  rawTablePage = 1;
+  renderRawTable(getFiltered(), filterSummaryText());
+});
+document.getElementById('rawTablePrevBtn').addEventListener('click', ()=>{
+  rawTablePage = Math.max(1, rawTablePage - 1);
+  renderRawTable(getFiltered(), filterSummaryText());
+});
+document.getElementById('rawTableNextBtn').addEventListener('click', ()=>{
+  rawTablePage = rawTablePage + 1;
+  renderRawTable(getFiltered(), filterSummaryText());
+});
+document.getElementById('rawTableExportBtn').addEventListener('click', ()=>{
+  const data = getFiltered();
+  if(!data.length){ exportNoteEl.textContent = 'Nothing to export — no entries match the current filters.'; return; }
+  const sorted = data.slice().sort((a,b)=>{
+    let av, bv;
+    if(rawTableSortCol==='effort'){ av=a.effort; bv=b.effort; }
+    else { av=String(a[rawTableSortCol]||'').toLowerCase(); bv=String(b[rawTableSortCol]||'').toLowerCase(); }
+    if(av<bv) return rawTableSortDir==='asc' ? -1 : 1;
+    if(av>bv) return rawTableSortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  const rows = sorted.map(r=>({
+    Date: r.date, Employee: r.employee, Project: r.project, 'Module / Feature': r.module,
+    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Task Description': r.desc,
+    'Effort (Minutes)': r.effort, Status: r.status, Remarks: r.remarks || ''
+  }));
+  const csv = Papa.unparse(rows);
+  triggerDownload('effort_full_log_' + Date.now() + '.csv', csv, 'text/csv;charset=utf-8;');
+  exportNoteEl.textContent = 'Exported ' + data.length + ' rows (sorted by ' + rawTableSortCol + ') to CSV.';
+});
+
+
+dateFromEl.addEventListener('change', renderAll);
+dateToEl.addEventListener('change', renderAll);
+document.getElementById('resetRangeBtn').addEventListener('click', ()=>{ setDateBoundsFromData(ACTIVE_DATA); renderAll(); });
+
+const trendGranularityEl = document.getElementById('trendGranularity');
+trendGranularityEl.addEventListener('change', renderAll);
+
+const projectChartDimEl = document.getElementById('projectChartDim');
+const projectChartMeasureEl = document.getElementById('projectChartMeasure');
+const natureChartDimEl = document.getElementById('natureChartDim');
+const natureChartMeasureEl = document.getElementById('natureChartMeasure');
+const trendMetricEl = document.getElementById('trendMetric');
+const trendSplitByEl = document.getElementById('trendSplitBy');
+const statusChartDimEl = document.getElementById('statusChartDim');
+const statusChartMeasureEl = document.getElementById('statusChartMeasure');
+[projectChartDimEl, projectChartMeasureEl, natureChartDimEl, natureChartMeasureEl, trendMetricEl, trendSplitByEl, statusChartDimEl, statusChartMeasureEl]
+  .forEach(el => el.addEventListener('change', renderAll));
+
+[employeeFilterEl, projectFilterEl, natureFilterEl].forEach(el=>{
+  el.addEventListener('change', renderAll);
+});
+document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
+  [employeeFilterEl, projectFilterEl, natureFilterEl].forEach(el=>el.value='ALL');
+  searchBoxEl.value = '';
+  renderAll();
+});
+
+let searchDebounceTimer = null;
+searchBoxEl.addEventListener('input', ()=>{
+  clearTimeout(searchDebounceTimer);
+  searchDebounceTimer = setTimeout(renderAll, 250);
+});
+
+// ---- saved filters (persisted to localStorage so they survive a page reload) ----
+const SAVED_FILTERS_KEY = 'effortManifestDashboard.savedFilters.v1';
+
+function loadSavedFiltersFromStorage(){
+  try {
+    const raw = localStorage.getItem(SAVED_FILTERS_KEY);
+    return raw ? JSON.parse(raw) : [];
+  } catch(e){
+    return [];
+  }
+}
+function persistSavedFilters(){
+  try {
+    localStorage.setItem(SAVED_FILTERS_KEY, JSON.stringify(SAVED_FILTERS));
+  } catch(e){
+    savedFilterNoteEl.textContent = 'Could not save to browser storage — filter kept for this session only.';
+  }
+}
+
+let SAVED_FILTERS = loadSavedFiltersFromStorage(); // { name, from, to, employee, project, nature, search }
+const savedFilterNoteEl = document.getElementById('savedFilterNote');
+const savedFiltersToggleEl = document.getElementById('savedFiltersToggle');
+const savedFiltersToggleLabelEl = document.getElementById('savedFiltersToggleLabel');
+const savedFiltersMenuEl = document.getElementById('savedFiltersMenu');
+let selectedSavedFilterName = '';
+
+function currentFilterState(){
+  return {
+    from: dateFromEl.value,
+    to: dateToEl.value,
+    employee: employeeFilterEl.value,
+    project: projectFilterEl.value,
+    nature: natureFilterEl.value,
+    search: searchBoxEl.value
+  };
+}
+
+function optionExists(sel, value){
+  return Array.from(sel.options).some(o=>o.value===value);
+}
+
+function applyFilterState(f){
+  if(f.from) dateFromEl.value = f.from;
+  if(f.to) dateToEl.value = f.to;
+  employeeFilterEl.value = optionExists(employeeFilterEl, f.employee) ? f.employee : 'ALL';
+  projectFilterEl.value = optionExists(projectFilterEl, f.project) ? f.project : 'ALL';
+  natureFilterEl.value = optionExists(natureFilterEl, f.nature) ? f.nature : 'ALL';
+  searchBoxEl.value = f.search || '';
+  renderAll();
+  savedFilterNoteEl.textContent = 'Applied "' + f.name + '".';
+}
+
+function closeSavedFiltersMenu(){
+  savedFiltersMenuEl.style.display = 'none';
+  savedFiltersToggleEl.classList.remove('open');
+}
+function toggleSavedFiltersMenu(){
+  if(savedFiltersToggleEl.disabled) return;
+  const isOpen = savedFiltersMenuEl.style.display === 'block';
+  if(isOpen){ closeSavedFiltersMenu(); return; }
+  savedFiltersMenuEl.style.display = 'block';
+  savedFiltersToggleEl.classList.add('open');
+}
+
+function renderSavedFiltersMenu(){
+  savedFiltersMenuEl.innerHTML = '';
+  if(!SAVED_FILTERS.length){
+    const empty = document.createElement('div');
+    empty.className = 'dropdown-empty';
+    empty.textContent = 'No saved filters yet.';
+    savedFiltersMenuEl.appendChild(empty);
+    return;
+  }
+  SAVED_FILTERS.forEach(f=>{
+    const item = document.createElement('div');
+    item.className = 'dropdown-item';
+    item.innerHTML =
+      '<span class="dropdown-item-label" title="'+f.name+'">'+f.name+'</span>'+
+      '<button class="dropdown-item-delete" type="button" title="Delete '+f.name+'">×</button>';
+    item.querySelector('.dropdown-item-label').addEventListener('click', ()=>{
+      selectedSavedFilterName = f.name;
+      savedFiltersToggleLabelEl.textContent = f.name;
+      applyFilterState(f);
+      closeSavedFiltersMenu();
+    });
+    item.querySelector('.dropdown-item-delete').addEventListener('click', (e)=>{
+      e.stopPropagation();
+      SAVED_FILTERS = SAVED_FILTERS.filter(sf=>sf.name!==f.name);
+      persistSavedFilters();
+      if(selectedSavedFilterName === f.name){
+        selectedSavedFilterName = '';
+        savedFiltersToggleLabelEl.textContent = '— Select a saved filter —';
+      }
+      renderSavedFiltersMenu();
+      savedFilterNoteEl.textContent = 'Deleted "' + f.name + '".';
+    });
+    savedFiltersMenuEl.appendChild(item);
+  });
+}
+
+function populateSavedFiltersSelect(){
+  renderSavedFiltersMenu();
+}
+
+savedFiltersToggleEl.addEventListener('click', (e)=>{
+  e.stopPropagation();
+  toggleSavedFiltersMenu();
+});
+document.addEventListener('click', (e)=>{
+  if(!savedFiltersMenuEl.contains(e.target) && e.target !== savedFiltersToggleEl){
+    closeSavedFiltersMenu();
+  }
+});
+
+// ---- save filter modal ----
+const saveFilterModalEl = document.getElementById('saveFilterModal');
+const modalFilterNameInputEl = document.getElementById('modalFilterNameInput');
+const modalFilterErrorEl = document.getElementById('modalFilterError');
+
+function openSaveFilterModal(){
+  modalFilterNameInputEl.value = '';
+  modalFilterErrorEl.style.display = 'none';
+  saveFilterModalEl.style.display = 'flex';
+  setTimeout(()=>modalFilterNameInputEl.focus(), 0);
+}
+function closeSaveFilterModal(){
+  saveFilterModalEl.style.display = 'none';
+}
+function confirmSaveFilter(){
+  const name = modalFilterNameInputEl.value.trim();
+  if(!name){
+    modalFilterErrorEl.style.display = 'block';
+    modalFilterNameInputEl.focus();
+    return;
+  }
+  SAVED_FILTERS = SAVED_FILTERS.filter(f=>f.name!==name);
+  SAVED_FILTERS.push({ name, ...currentFilterState() });
+  persistSavedFilters();
+  populateSavedFiltersSelect();
+  selectedSavedFilterName = name;
+  savedFiltersToggleLabelEl.textContent = name;
+  savedFilterNoteEl.textContent = 'Saved "' + name + '".';
+  closeSaveFilterModal();
+}
+
+document.getElementById('saveFilterBtn').addEventListener('click', openSaveFilterModal);
+document.getElementById('modalCancelBtn').addEventListener('click', closeSaveFilterModal);
+document.getElementById('modalConfirmBtn').addEventListener('click', confirmSaveFilter);
+modalFilterNameInputEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter'){ confirmSaveFilter(); }
+  if(e.key === 'Escape'){ closeSaveFilterModal(); }
+});
+saveFilterModalEl.addEventListener('click', (e)=>{
+  if(e.target === saveFilterModalEl) closeSaveFilterModal();
+});
+
+populateSavedFiltersSelect();
+
+// ---- export: CSV / PNG / print-to-PDF ----
+function triggerDownload(filename, content, mime){
+  const blob = new Blob([content], {type: mime});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = filename;
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  setTimeout(()=>URL.revokeObjectURL(url), 1000);
+}
+
+const exportNoteEl = document.getElementById('exportNote');
+
+document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
+  const data = getFiltered();
+  if(!data.length){ exportNoteEl.textContent = 'Nothing to export — no entries match the current filters.'; return; }
+  const rows = data.map(r=>({
+    Date: r.date, Employee: r.employee, Project: r.project, 'Module / Feature': r.module,
+    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Task Description': r.desc,
+    'Effort (Minutes)': r.effort, Status: r.status, Remarks: r.remarks || ''
+  }));
+  const csv = Papa.unparse(rows);
+  triggerDownload('effort_export_' + Date.now() + '.csv', csv, 'text/csv;charset=utf-8;');
+  exportNoteEl.textContent = 'Exported ' + data.length + ' filtered entries to CSV.';
+});
+
+document.getElementById('exportPngBtn').addEventListener('click', ()=>{
+  if(typeof html2canvas === 'undefined'){
+    exportNoteEl.textContent = 'Image export library failed to load — check your internet connection and try again.';
+    return;
+  }
+  exportNoteEl.textContent = 'Rendering image…';
+  showLoader('Rendering dashboard image…');
+  nextFrame(()=>{
+    html2canvas(document.querySelector('.wrap'), { backgroundColor: '#12151c', useCORS: true }).then(canvas=>{
+      const link = document.createElement('a');
+      link.download = 'effort_dashboard_' + Date.now() + '.png';
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+      exportNoteEl.textContent = 'Dashboard image downloaded.';
+      hideLoader();
+    }).catch(()=>{
+      exportNoteEl.textContent = 'Could not render the image. Try Print / Save as PDF instead.';
+      hideLoader();
+    });
+  });
+});
+
+document.getElementById('exportPdfBtn').addEventListener('click', ()=>{
+  window.print();
+});
+
+// ---- multi-file dataset registry ----
+let LOADED_FILES = []; // [{ name, records }]
+let LAST_DUPLICATE_COUNT = 0;
+
+function recordSignature(r){
+  return [
+    r.date,
+    String(r.employee||'').trim().toLowerCase(),
+    String(r.project||'').trim().toLowerCase(),
+    String(r.module||'').trim().toLowerCase(),
+    String(r.nature||'').trim().toLowerCase(),
+    String(r.ticket||'').trim().toLowerCase(),
+    String(r.desc||'').trim().toLowerCase(),
+    r.effort,
+    String(r.status||'').trim().toLowerCase()
+  ].join('|');
+}
+
+function rebuildActiveData(){
+  const all = LOADED_FILES.reduce((acc,f)=>acc.concat(f.records), []);
+  const seen = new Set();
+  const deduped = [];
+  let dupCount = 0;
+  all.forEach(r=>{
+    const sig = recordSignature(r);
+    if(seen.has(sig)){ dupCount++; return; }
+    seen.add(sig);
+    deduped.push(r);
+  });
+  deduped.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  ACTIVE_DATA = deduped;
+  LAST_DUPLICATE_COUNT = dupCount;
+}
+
+const filesButtonEl = document.getElementById('filesButton');
+const filesModalEl = document.getElementById('filesModal');
+const filesModalListEl = document.getElementById('filesModalList');
+const filesModalTitleEl = document.getElementById('filesModalTitle');
+
+function openFilesModal(){
+  if(filesButtonEl.disabled) return;
+  renderFilesModalList();
+  filesModalEl.style.display = 'flex';
+}
+function closeFilesModal(){
+  filesModalEl.style.display = 'none';
+}
+
+function renderFilesModalList(){
+  filesModalListEl.innerHTML = '';
+  filesModalTitleEl.textContent = 'Uploaded files (' + LOADED_FILES.length + ')';
+  if(!LOADED_FILES.length){
+    const empty = document.createElement('div');
+    empty.className = 'dropdown-empty';
+    empty.textContent = 'No files uploaded yet.';
+    filesModalListEl.appendChild(empty);
+    return;
+  }
+  LOADED_FILES.forEach(f=>{
+    const chip = document.createElement('div');
+    chip.className = 'file-chip';
+    chip.style.width = '100%';
+    chip.style.boxSizing = 'border-box';
+    chip.innerHTML =
+      '<span class="fc-name" title="'+f.name+'" style="max-width:none;flex:1;">'+f.name+'</span>'+
+      '<span class="fc-count">'+f.records.length+' rows</span>'+
+      '<button class="fc-remove" type="button" title="Remove '+f.name+'">×</button>';
+    chip.querySelector('.fc-remove').addEventListener('click', ()=> removeFile(f.name));
+    filesModalListEl.appendChild(chip);
+  });
+}
+
+function renderFileChips(){
+  filesButtonEl.textContent = 'Uploaded files (' + LOADED_FILES.length + ')';
+  if(filesModalEl.style.display === 'flex') renderFilesModalList();
+  const dupNote = document.getElementById('dupNote');
+  if(LAST_DUPLICATE_COUNT > 0){
+    dupNote.style.display = 'block';
+    dupNote.textContent = LAST_DUPLICATE_COUNT + ' duplicate ' + (LAST_DUPLICATE_COUNT===1?'entry':'entries') + ' excluded (identical date, project, module, nature, effort, and status across files)';
+  } else {
+    dupNote.style.display = 'none';
+  }
+}
+
+filesButtonEl.addEventListener('click', openFilesModal);
+document.getElementById('filesModalCloseBtn').addEventListener('click', closeFilesModal);
+document.getElementById('filesModalClearBtn').addEventListener('click', ()=>{
+  LOADED_FILES = [];
+  refreshAfterFileChange();
+  renderFilesModalList();
+});
+filesModalEl.addEventListener('click', (e)=>{
+  if(e.target === filesModalEl) closeFilesModal();
+});
+
+const CONTROLS_TO_GATE = [
+  'filesButton','dateFrom','dateTo','resetRangeBtn',
+  'employeeFilter','projectFilterGlobal','natureFilter','searchBox','resetFiltersBtn','saveFilterBtn',
+  'trendGranularity','exportCsvBtn','exportPngBtn','exportPdfBtn',
+  'projectChartDim','projectChartMeasure','natureChartDim','natureChartMeasure',
+  'trendMetric','trendSplitBy','statusChartDim','statusChartMeasure',
+  'rawTablePageSize','rawTableExportBtn'
+];
+function setControlsEnabled(enabled){
+  CONTROLS_TO_GATE.forEach(id=>{
+    const el = document.getElementById(id);
+    if(el) el.disabled = !enabled;
+  });
+  savedFiltersToggleEl.disabled = !enabled;
+}
+
+function refreshAfterFileChange(){
+  rebuildActiveData();
+  renderFileChips();
+  const fileCount = LOADED_FILES.length;
+  setControlsEnabled(fileCount > 0);
+  if(fileCount === 0){
+    ACTIVE_SOURCE = 'No files loaded yet';
+    sourceTagEl.innerHTML = '<span class="source-dot" style="background:var(--text-dim);"></span>No files loaded yet';
+    document.getElementById('manifestNo').textContent = '—';
+    document.getElementById('footnoteText').textContent = 'Upload a CSV or Excel file to generate this report';
+  } else {
+    const label = fileCount===1 ? LOADED_FILES[0].name : fileCount + ' files';
+    ACTIVE_SOURCE = label;
+    sourceTagEl.innerHTML = '<span class="source-dot" style="background:'+ORANGE+'"></span>' + label + ' · ' + ACTIVE_DATA.length + ' entries' + (LAST_DUPLICATE_COUNT ? ' (' + LAST_DUPLICATE_COUNT + ' duplicates excluded)' : '');
+    const stamp = new Date().toISOString().slice(2,10).replace(/-/g,'');
+    document.getElementById('manifestNo').textContent = 'EL-' + stamp + '-' + ACTIVE_DATA.length;
+    const totalMin = ACTIVE_DATA.reduce((a,r)=>a+r.effort,0);
+    const fileNames = LOADED_FILES.map(f=>f.name).join(', ');
+    document.getElementById('footnoteText').textContent = 'Generated from ' + fileNames + ' · ' + ACTIVE_DATA.length + ' entries · ' + Math.round(totalMin).toLocaleString() + ' minutes total' + (LAST_DUPLICATE_COUNT ? ' · ' + LAST_DUPLICATE_COUNT + ' duplicate ' + (LAST_DUPLICATE_COUNT===1?'entry':'entries') + ' excluded' : '');
+  }
+  setDateBoundsFromData(ACTIVE_DATA);
+  populateFacetFilters(ACTIVE_DATA);
+  renderAll();
+}
+
+function removeFile(name){
+  LOADED_FILES = LOADED_FILES.filter(f=>f.name!==name);
+  refreshAfterFileChange();
+}
+
+function addOrReplaceFile(name, records){
+  const idx = LOADED_FILES.findIndex(f=>f.name===name);
+  if(idx>=0) LOADED_FILES[idx] = { name, records };
+  else LOADED_FILES.push({ name, records });
+}
+
+// ---- loading overlay helpers ----
+const loadingOverlayEl = document.getElementById('loadingOverlay');
+const loadingTextEl = document.getElementById('loadingText');
+function showLoader(text){
+  loadingTextEl.textContent = text || 'Processing…';
+  loadingOverlayEl.style.display = 'flex';
+}
+function hideLoader(){
+  loadingOverlayEl.style.display = 'none';
+}
+function nextFrame(fn){
+  // lets the browser paint the overlay before heavy synchronous work runs
+  requestAnimationFrame(()=>requestAnimationFrame(fn));
+}
+
+document.getElementById('csvFileInput').addEventListener('change', function(e){
+  const files = Array.from(e.target.files || []);
+  if(!files.length) return;
+
+  showLoader('Reading ' + files.length + ' file' + (files.length===1?'':'s') + '…');
+
+  const parseOne = (file, idx) => new Promise((resolve)=>{
+    const isXlsx = /\.xlsx?$/i.test(file.name) || (file.type && file.type.indexOf('spreadsheet') !== -1) || (file.type && file.type.indexOf('ms-excel') !== -1);
+
+    if(isXlsx){
+      const reader = new FileReader();
+      reader.onload = function(evt){
+        try{
+          const data = new Uint8Array(evt.target.result);
+          const workbook = XLSX.read(data, { type: 'array', cellDates: true });
+          const firstSheetName = workbook.SheetNames[0];
+          const sheet = workbook.Sheets[firstSheetName];
+          const rows = XLSX.utils.sheet_to_json(sheet, { defval: '', raw: false });
+          showLoader('Parsed ' + (idx+1) + ' of ' + files.length + ': ' + file.name);
+          const { records, error } = csvRowsToRecords(rows, file.name);
+          resolve({ name: file.name, records, error });
+        } catch(err){
+          resolve({ name: file.name, records: [], error: 'Could not read this Excel file — make sure it is a valid .xlsx workbook.' });
+        }
+      };
+      reader.onerror = function(){
+        resolve({ name: file.name, records: [], error: 'Could not read this Excel file.' });
+      };
+      reader.readAsArrayBuffer(file);
+      return;
+    }
+
+    Papa.parse(file, {
+      header: true,
+      skipEmptyLines: true,
+      complete: function(results){
+        showLoader('Parsed ' + (idx+1) + ' of ' + files.length + ': ' + file.name);
+        const { records, error } = csvRowsToRecords(results.data, file.name);
+        resolve({ name: file.name, records, error });
+      },
+      error: function(){
+        resolve({ name: file.name, records: [], error: 'Could not read this file. Make sure it is a valid CSV.' });
+      }
+    });
+  });
+
+  nextFrame(()=>{
+    Promise.all(files.map(parseOne)).then(results=>{
+      const errors = [];
+      results.forEach(r=>{
+        if(r.error){ errors.push(r.name + ': ' + r.error); return; }
+        addOrReplaceFile(r.name, r.records);
+      });
+      showLoader('Building dashboard…');
+      nextFrame(()=>{
+        refreshAfterFileChange();
+        hideLoader();
+        if(errors.length){
+          showUploadErrorModal(errors.join('\n'));
+        }
+      });
+    });
+  });
+
+  e.target.value = '';
+});
+
+// ---- initial render (empty until a CSV is uploaded) ----
+setControlsEnabled(false);
+populateFacetFilters(ACTIVE_DATA);
+setDateBoundsFromData(ACTIVE_DATA);
+renderAll();
+</script>
+</body>
+</html>
