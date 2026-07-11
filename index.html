@@ -420,6 +420,56 @@
   }
   .dropdown-item-delete:hover{color:var(--red);background:#2a1a1a;}
 
+  .ms-search{
+    width:100%;
+    background:var(--bg);
+    color:var(--text);
+    border:1px solid var(--border);
+    border-radius:6px;
+    padding:6px 8px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    margin-bottom:6px;
+  }
+  .ms-search:focus{outline:none;border-color:var(--orange);}
+  .ms-actions{display:flex;gap:6px;margin-bottom:6px;}
+  .ms-actions button{
+    flex:1;background:none;border:1px solid var(--border);color:var(--text-dim);
+    border-radius:6px;padding:4px 6px;font-family:'IBM Plex Mono', monospace;font-size:10.5px;cursor:pointer;
+  }
+  .ms-actions button:hover{border-color:var(--text-dim);color:var(--text);}
+  .ms-list{max-height:220px;overflow-y:auto;}
+  .dropdown-item.ms-item{padding:6px 8px;}
+  .dropdown-item.ms-item input[type="checkbox"]{
+    accent-color:var(--orange);
+    width:14px;height:14px;flex-shrink:0;cursor:pointer;
+  }
+  .dropdown-item.ms-item.all-row{border-bottom:1px solid var(--border);border-radius:0;margin-bottom:4px;padding-bottom:8px;}
+
+  .tag-input{
+    display:flex;flex-wrap:wrap;gap:6px;align-items:center;
+    background:var(--bg);border:1px solid var(--border);border-radius:6px;
+    padding:6px 8px;min-height:34px;
+  }
+  .tag-input:focus-within{border-color:var(--orange);}
+  .tag-input-chips{display:flex;flex-wrap:wrap;gap:6px;}
+  .tag-chip{
+    display:flex;align-items:center;gap:5px;
+    background:var(--orange-soft);border:1px solid var(--orange);border-radius:4px;
+    padding:3px 4px 3px 8px;font-size:11px;font-family:'IBM Plex Mono', monospace;color:var(--text);
+    white-space:nowrap;
+  }
+  .tag-chip button{
+    background:none;border:none;color:var(--text-mute);cursor:pointer;
+    font-size:13px;line-height:1;padding:2px;display:flex;align-items:center;
+  }
+  .tag-chip button:hover{color:var(--red);}
+  #searchBoxInput{
+    flex:1;min-width:90px;background:none;border:none;outline:none;
+    color:var(--text);font-family:'IBM Plex Mono', monospace;font-size:11.5px;padding:2px 0;
+  }
+  #searchBoxInput::placeholder{color:var(--text-dim);}
+
   .file-chips{
     display:flex;
     flex-wrap:wrap;
@@ -454,6 +504,17 @@
 
   th.sortable{cursor:pointer;user-select:none;}
   th.sortable:hover{color:var(--text);}
+  #rawTable{table-layout:fixed;border-collapse:collapse;}
+  #rawTable th{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:14px;}
+  #rawTable td{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0;}
+  .col-resize-handle{
+    position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none;z-index:2;
+    touch-action:none;
+  }
+  .col-resize-handle::after{
+    content:'';position:absolute;top:2px;bottom:2px;right:3px;width:2px;background:var(--border);
+  }
+  .col-resize-handle:hover::after, .col-resize-handle.active::after{background:var(--orange);}
   .sort-arrow{font-size:9px;color:var(--orange);}
 
   .fc-apply{
@@ -644,6 +705,18 @@
       </div>
     </div>
     <div class="control-group">
+      <label for="quickRange">Quick range</label>
+      <select id="quickRange" disabled>
+        <option value="custom" selected>Custom</option>
+        <option value="this_month">This month</option>
+        <option value="last_month">Last month</option>
+        <option value="last_3_months">Last 3 months</option>
+        <option value="this_quarter">This quarter</option>
+        <option value="this_year">This year</option>
+        <option value="all_time">All time</option>
+      </select>
+    </div>
+    <div class="control-group">
       <label for="dateFrom">From</label>
       <input type="date" id="dateFrom" disabled>
     </div>
@@ -663,21 +736,36 @@
 
 
   <div class="control-bar" id="filterRow">
-    <div class="control-group">
-      <label for="employeeFilter">Employee</label>
-      <select id="employeeFilter" disabled><option value="ALL">All employees</option></select>
+    <div class="control-group" id="employeeFilterGroup" style="position:relative;">
+      <label for="employeeFilterToggle">Employee</label>
+      <button class="dropdown-toggle" id="employeeFilterToggle" type="button" disabled>
+        <span id="employeeFilterLabel">All employees</span>
+        <span class="dropdown-caret">▾</span>
+      </button>
+      <div class="dropdown-menu" id="employeeFilterMenu" style="display:none;"></div>
     </div>
-    <div class="control-group">
-      <label for="projectFilterGlobal">Project</label>
-      <select id="projectFilterGlobal" disabled><option value="ALL">All projects</option></select>
+    <div class="control-group" id="projectFilterGroup" style="position:relative;">
+      <label for="projectFilterToggle">Project</label>
+      <button class="dropdown-toggle" id="projectFilterToggle" type="button" disabled>
+        <span id="projectFilterLabel">All projects</span>
+        <span class="dropdown-caret">▾</span>
+      </button>
+      <div class="dropdown-menu" id="projectFilterMenu" style="display:none;"></div>
     </div>
-    <div class="control-group">
-      <label for="natureFilter">Nature of task</label>
-      <select id="natureFilter" disabled><option value="ALL">All natures</option></select>
+    <div class="control-group" id="natureFilterGroup" style="position:relative;">
+      <label for="natureFilterToggle">Nature of task</label>
+      <button class="dropdown-toggle" id="natureFilterToggle" type="button" disabled>
+        <span id="natureFilterLabel">All natures</span>
+        <span class="dropdown-caret">▾</span>
+      </button>
+      <div class="dropdown-menu" id="natureFilterMenu" style="display:none;"></div>
     </div>
-    <div class="control-group" style="flex:1;min-width:200px;">
-      <label for="searchBox">Search description / remarks</label>
-      <input type="text" id="searchBox" placeholder="e.g. bug, POD, timeout..." disabled>
+    <div class="control-group" style="flex:1;min-width:220px;">
+      <label for="searchBoxInput">Search description / remarks</label>
+      <div class="tag-input" id="searchTagInput">
+        <div class="tag-input-chips" id="searchChips"></div>
+        <input type="text" id="searchBoxInput" placeholder="Type a keyword, press Enter to add…" disabled>
+      </div>
     </div>
     <div class="control-group">
       <label>&nbsp;</label>
@@ -923,18 +1011,23 @@
       </div>
     </div>
     <div style="max-height:420px;overflow:auto;margin-top:10px;">
-      <table id="rawTable" style="min-width:860px;">
+      <table id="rawTable">
+        <colgroup>
+          <col data-col="date"><col data-col="employee"><col data-col="project"><col data-col="module">
+          <col data-col="nature"><col data-col="ticket"><col data-col="desc"><col data-col="effort">
+          <col data-col="status"><col data-col="remarks">
+        </colgroup>
         <thead><tr>
-          <th class="sortable" data-rcol="date">Date <span class="sort-arrow" data-rarrow="date"></span></th>
-          <th class="sortable" data-rcol="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span></th>
-          <th class="sortable" data-rcol="project">Project <span class="sort-arrow" data-rarrow="project"></span></th>
-          <th class="sortable" data-rcol="module">Module <span class="sort-arrow" data-rarrow="module"></span></th>
-          <th class="sortable" data-rcol="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span></th>
-          <th class="sortable" data-rcol="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span></th>
-          <th>Description</th>
-          <th class="sortable" data-rcol="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span></th>
-          <th class="sortable" data-rcol="status">Status <span class="sort-arrow" data-rarrow="status"></span></th>
-          <th>Remarks</th>
+          <th class="sortable" data-col="date">Date <span class="sort-arrow" data-rarrow="date"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="project">Project <span class="sort-arrow" data-rarrow="project"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="module">Module <span class="sort-arrow" data-rarrow="module"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span><span class="col-resize-handle"></span></th>
+          <th data-col="desc">Description<span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="status">Status <span class="sort-arrow" data-rarrow="status"></span><span class="col-resize-handle"></span></th>
+          <th data-col="remarks">Remarks<span class="col-resize-handle"></span></th>
         </tr></thead>
         <tbody id="rawTableBody"></tbody>
       </table>
@@ -985,7 +1078,7 @@ const DIMENSIONS = {
   employee: { label: 'Employee',          get: d => d.employee || 'Unspecified' },
   nature:   { label: 'Task nature',       get: d => d.nature || 'Unspecified' },
   status:   { label: 'Status',            get: d => d.status || 'Unspecified' },
-  ticket:   { label: 'Ticket',            get: d => d.ticket || 'No ticket' }
+  ticket:   { label: 'Ticket',            get: d => d.ticketDisplay || 'No ticket' }
 };
 const MEASURES = {
   minutes: { label: 'Minutes', unit: 'min', suffix: '', get: (min,cnt) => Math.round(min) },
@@ -1045,6 +1138,23 @@ function findHeader(headers, needles){
   });
 }
 
+// ---- ticket normalization: NAV-prefixed IDs are Jira tickets; URL-shaped values (Zoho links) get
+// split on '/' and the last path segment is used as the ticket id ----
+function normalizeTicket(raw){
+  if(!raw) return null;
+  const val = String(raw).trim();
+  if(!val) return null;
+  if(val.includes('/')){
+    const parts = val.split('/').map(p=>p.trim()).filter(Boolean);
+    const id = parts.length ? parts[parts.length-1] : val;
+    return { id, system: 'Zoho', display: 'Zoho: ' + id };
+  }
+  if(/^NAV/i.test(val)){
+    return { id: val, system: 'Jira', display: 'Jira: ' + val };
+  }
+  return { id: val, system: 'Other', display: val };
+}
+
 function csvRowsToRecords(rows, fileName){
   if(!rows.length) return { records: [], error: 'The file has no data rows.' };
   const headers = Object.keys(rows[0]);
@@ -1072,6 +1182,7 @@ function csvRowsToRecords(rows, fileName){
     const effortRaw = row[effortH];
     const effort = parseFloat(String(effortRaw).replace(/[^0-9.\-]/g,''));
     if(isNaN(effort)) return;
+    const ticketInfo = normalizeTicket(ticketH ? row[ticketH] : null);
     records.push({
       date: d.toISOString().slice(0,10),
       dateDisp: d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}),
@@ -1079,7 +1190,9 @@ function csvRowsToRecords(rows, fileName){
       project: (projH ? row[projH] : 'UNKNOWN') || 'UNKNOWN',
       module: (moduleH ? row[moduleH] : '') || '',
       nature: (natureH ? row[natureH] : '') || 'Unspecified',
-      ticket: (ticketH && row[ticketH]) ? row[ticketH] : null,
+      ticket: ticketInfo ? ticketInfo.id : null,
+      ticketDisplay: ticketInfo ? ticketInfo.display : null,
+      ticketSystem: ticketInfo ? ticketInfo.system : null,
       desc: (descH ? row[descH] : '') || '',
       effort: effort,
       status: (statusH ? row[statusH] : '') || 'Unspecified',
@@ -1094,6 +1207,7 @@ function csvRowsToRecords(rows, fileName){
 // ---- date range controls ----
 const dateFromEl = document.getElementById('dateFrom');
 const dateToEl = document.getElementById('dateTo');
+const quickRangeEl = document.getElementById('quickRange');
 const rangeNoteEl = document.getElementById('rangeNote');
 const sourceTagEl = document.getElementById('sourceTag');
 
@@ -1129,44 +1243,206 @@ function getDateFiltered(){
   });
 }
 
-// ---- employee / project / nature filters ----
-const employeeFilterEl = document.getElementById('employeeFilter');
-const projectFilterEl = document.getElementById('projectFilterGlobal');
-const natureFilterEl = document.getElementById('natureFilter');
-const searchBoxEl = document.getElementById('searchBox');
-const filterNoteEl = document.getElementById('filterNote');
-
-function fillSelect(sel, values, allLabel){
-  const current = sel.value || 'ALL';
-  sel.innerHTML = '';
-  const optAll = document.createElement('option');
-  optAll.value = 'ALL'; optAll.textContent = allLabel;
-  sel.appendChild(optAll);
-  values.forEach(v=>{
-    const o = document.createElement('option');
-    o.value = v; o.textContent = v;
-    sel.appendChild(o);
+// ---- shared dropdown-menu open/close helper (used by employee/project/nature multi-selects + saved filters) ----
+function closeAllDropdowns(except){
+  document.querySelectorAll('.dropdown-menu').forEach(m=>{ if(m!==except) m.style.display='none'; });
+  document.querySelectorAll('.dropdown-toggle').forEach(t=>{ if(t.dataset.menuFor!==((except&&except.id)||'')) t.classList.remove('open'); });
+}
+document.addEventListener('click', (e)=>{
+  const openMenus = document.querySelectorAll('.dropdown-menu[style*="display: block"]');
+  openMenus.forEach(menu=>{
+    const toggle = document.querySelector('[data-menu-for="'+menu.id+'"]') || menu.previousElementSibling;
+    if(!menu.contains(e.target) && e.target!==toggle && !(toggle&&toggle.contains(e.target))){
+      menu.style.display='none';
+      if(toggle) toggle.classList.remove('open');
+    }
   });
-  sel.value = values.includes(current) ? current : 'ALL';
+});
+
+// ---- reusable checkbox multi-select dropdown: employee / project / nature filters ----
+function makeMultiSelect({ toggleId, menuId, labelId, allLabel, onChange }){
+  const toggle = document.getElementById(toggleId);
+  const menu = document.getElementById(menuId);
+  const labelEl = document.getElementById(labelId);
+  toggle.dataset.menuFor = menuId;
+  let options = [];
+  let selected = new Set(); // empty set = "All" (no filter)
+
+  function updateLabel(){
+    if(selected.size===0) labelEl.textContent = allLabel;
+    else if(selected.size===1) labelEl.textContent = [...selected][0];
+    else labelEl.textContent = selected.size + ' selected';
+    labelEl.title = selected.size ? [...selected].join(', ') : allLabel;
+  }
+
+  function renderList(term){
+    const listWrap = menu.querySelector('.ms-list');
+    listWrap.innerHTML = '';
+    const t = (term||'').toLowerCase();
+    const filtered = options.filter(v=>v.toLowerCase().includes(t));
+    if(!filtered.length){
+      const empty = document.createElement('div');
+      empty.className = 'dropdown-empty';
+      empty.textContent = options.length ? 'No matches' : 'No options';
+      listWrap.appendChild(empty);
+      return;
+    }
+    filtered.forEach(v=>{
+      const row = document.createElement('label');
+      row.className = 'dropdown-item ms-item';
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = selected.has(v);
+      cb.addEventListener('change', ()=>{
+        if(cb.checked) selected.add(v); else selected.delete(v);
+        updateLabel();
+        onChange();
+      });
+      const span = document.createElement('span');
+      span.className = 'dropdown-item-label';
+      span.textContent = v;
+      span.title = v;
+      row.appendChild(cb);
+      row.appendChild(span);
+      listWrap.appendChild(row);
+    });
+  }
+
+  function buildMenu(){
+    menu.innerHTML = '';
+    const search = document.createElement('input');
+    search.type = 'text';
+    search.className = 'ms-search';
+    search.placeholder = 'Filter list…';
+    search.addEventListener('click', e=>e.stopPropagation());
+    search.addEventListener('input', ()=>renderList(search.value));
+    menu.appendChild(search);
+
+    const actions = document.createElement('div');
+    actions.className = 'ms-actions';
+    const allBtn = document.createElement('button');
+    allBtn.type = 'button'; allBtn.textContent = 'Select all';
+    allBtn.addEventListener('click', (e)=>{ e.stopPropagation(); selected = new Set(options); renderList(search.value); updateLabel(); onChange(); });
+    const noneBtn = document.createElement('button');
+    noneBtn.type = 'button'; noneBtn.textContent = 'Clear (' + allLabel + ')';
+    noneBtn.addEventListener('click', (e)=>{ e.stopPropagation(); selected = new Set(); renderList(search.value); updateLabel(); onChange(); });
+    actions.appendChild(allBtn); actions.appendChild(noneBtn);
+    menu.appendChild(actions);
+
+    const listWrap = document.createElement('div');
+    listWrap.className = 'ms-list';
+    menu.appendChild(listWrap);
+    renderList('');
+  }
+
+  function setOptions(values){
+    options = values;
+    selected = new Set([...selected].filter(v=>options.includes(v)));
+    buildMenu();
+    updateLabel();
+  }
+  function getSelected(){ return Array.from(selected); }
+  function setSelected(arr){
+    selected = new Set((arr||[]).filter(v=>options.includes(v)));
+    buildMenu();
+    updateLabel();
+  }
+  function clear(){ selected = new Set(); buildMenu(); updateLabel(); }
+
+  toggle.addEventListener('click', (e)=>{
+    if(toggle.disabled) return;
+    e.stopPropagation();
+    const willOpen = menu.style.display !== 'block';
+    closeAllDropdowns(willOpen ? menu : null);
+    if(willOpen){ menu.style.display = 'block'; toggle.classList.add('open'); }
+    else { menu.style.display = 'none'; toggle.classList.remove('open'); }
+  });
+  menu.addEventListener('click', e=>e.stopPropagation());
+
+  buildMenu();
+  updateLabel();
+  return { setOptions, getSelected, setSelected, clear };
 }
 
+// ---- employee / project / nature filters ----
+const employeeMS = makeMultiSelect({ toggleId:'employeeFilterToggle', menuId:'employeeFilterMenu', labelId:'employeeFilterLabel', allLabel:'All employees', onChange: renderAll });
+const projectMS = makeMultiSelect({ toggleId:'projectFilterToggle', menuId:'projectFilterMenu', labelId:'projectFilterLabel', allLabel:'All projects', onChange: renderAll });
+const natureMS = makeMultiSelect({ toggleId:'natureFilterToggle', menuId:'natureFilterMenu', labelId:'natureFilterLabel', allLabel:'All natures', onChange: renderAll });
+const filterNoteEl = document.getElementById('filterNote');
+
+// ---- keyword search: type a word, press Enter to add it as a chip; multiple chips = OR match ----
+const searchInputEl = document.getElementById('searchBoxInput');
+const searchChipsEl = document.getElementById('searchChips');
+let searchKeywords = [];
+
+function renderSearchChips(){
+  searchChipsEl.innerHTML = '';
+  searchKeywords.forEach((kw, i)=>{
+    const chip = document.createElement('span');
+    chip.className = 'tag-chip';
+    const label = document.createElement('span');
+    label.textContent = kw;
+    const removeBtn = document.createElement('button');
+    removeBtn.type = 'button';
+    removeBtn.innerHTML = '&times;';
+    removeBtn.setAttribute('aria-label', 'Remove keyword ' + kw);
+    removeBtn.addEventListener('click', ()=>{
+      searchKeywords.splice(i,1);
+      renderSearchChips();
+      renderAll();
+    });
+    chip.appendChild(label);
+    chip.appendChild(removeBtn);
+    searchChipsEl.appendChild(chip);
+  });
+}
+function addSearchKeyword(raw){
+  const kw = (raw||'').trim();
+  searchInputEl.value = '';
+  if(!kw) return;
+  if(searchKeywords.some(k=>k.toLowerCase()===kw.toLowerCase())) return;
+  searchKeywords.push(kw);
+  renderSearchChips();
+  renderAll();
+}
+function getSearchKeywords(){ return searchKeywords.slice(); }
+function setSearchKeywords(arr){
+  searchKeywords = Array.isArray(arr) ? arr.slice() : (arr ? String(arr).split(',').map(s=>s.trim()).filter(Boolean) : []);
+  renderSearchChips();
+}
+function clearSearchKeywords(){ searchKeywords = []; searchInputEl.value = ''; renderSearchChips(); }
+
+searchInputEl.addEventListener('keydown', (e)=>{
+  if(e.key === 'Enter' || e.key === ','){
+    e.preventDefault();
+    addSearchKeyword(searchInputEl.value);
+  } else if(e.key === 'Backspace' && !searchInputEl.value && searchKeywords.length){
+    searchKeywords.pop();
+    renderSearchChips();
+    renderAll();
+  }
+});
+searchInputEl.addEventListener('blur', ()=>{
+  if(searchInputEl.value.trim()) addSearchKeyword(searchInputEl.value);
+});
+
 function populateFacetFilters(data){
-  fillSelect(employeeFilterEl, Array.from(new Set(data.map(d=>d.employee))).filter(Boolean).sort(), 'All employees');
-  fillSelect(projectFilterEl, Array.from(new Set(data.map(d=>d.project))).filter(Boolean).sort(), 'All projects');
-  fillSelect(natureFilterEl, Array.from(new Set(data.map(d=>d.nature))).filter(Boolean).sort(), 'All natures');
+  employeeMS.setOptions(Array.from(new Set(data.map(d=>d.employee))).filter(Boolean).sort());
+  projectMS.setOptions(Array.from(new Set(data.map(d=>d.project))).filter(Boolean).sort());
+  natureMS.setOptions(Array.from(new Set(data.map(d=>d.nature))).filter(Boolean).sort());
 }
 
 function getFiltered(){
   const dateFiltered = getDateFiltered();
-  const emp = employeeFilterEl.value, proj = projectFilterEl.value, nat = natureFilterEl.value;
-  const term = (searchBoxEl.value || '').trim().toLowerCase();
+  const empSel = employeeMS.getSelected(), projSel = projectMS.getSelected(), natSel = natureMS.getSelected();
+  const keywords = getSearchKeywords().map(k=>k.toLowerCase());
   return dateFiltered.filter(d=>{
-    if(emp!=='ALL' && d.employee!==emp) return false;
-    if(proj!=='ALL' && d.project!==proj) return false;
-    if(nat!=='ALL' && d.nature!==nat) return false;
-    if(term){
+    if(empSel.length && !empSel.includes(d.employee)) return false;
+    if(projSel.length && !projSel.includes(d.project)) return false;
+    if(natSel.length && !natSel.includes(d.nature)) return false;
+    if(keywords.length){
       const hay = ((d.desc||'') + ' ' + (d.remarks||'')).toLowerCase();
-      if(!hay.includes(term)) return false;
+      if(!keywords.some(k => hay.includes(k))) return false;
     }
     return true;
   });
@@ -1174,10 +1450,11 @@ function getFiltered(){
 
 function activeFacetFilters(){
   const parts = [];
-  if(employeeFilterEl.value!=='ALL') parts.push({label:'Employee', value:employeeFilterEl.value});
-  if(projectFilterEl.value!=='ALL') parts.push({label:'Project', value:projectFilterEl.value});
-  if(natureFilterEl.value!=='ALL') parts.push({label:'Nature', value:natureFilterEl.value});
-  if(searchBoxEl.value.trim()) parts.push({label:'Search', value:searchBoxEl.value.trim()});
+  const empSel = employeeMS.getSelected(), projSel = projectMS.getSelected(), natSel = natureMS.getSelected();
+  if(empSel.length) parts.push({label:'Employee', value: empSel.join(', ')});
+  if(projSel.length) parts.push({label:'Project', value: projSel.join(', ')});
+  if(natSel.length) parts.push({label:'Nature', value: natSel.join(', ')});
+  if(searchKeywords.length) parts.push({label:'Search', value: searchKeywords.join(', ')});
   return parts;
 }
 function filterSummaryText(){
@@ -1225,8 +1502,8 @@ function renderAll(){
   document.getElementById('kpiCompletionFoot').textContent = completed + ' of ' + data.length + ' tasks closed';
 
   const daysSet = new Set(data.map(d=>d.date));
-  const activeDays = daysSet.size;
-  const avgPerDay = totalHrs/activeDays;
+  const activeDays = daysSet.size; // any day with at least one log entry counts as a worked day
+  const avgPerDay = activeDays ? totalHrs/activeDays : 0;
   document.getElementById('kpiDays').innerHTML = activeDays + '<span class="t-unit">days</span>';
   document.getElementById('kpiDaysFoot').textContent = avgPerDay.toFixed(1) + ' avg hrs / day worked';
 
@@ -1234,7 +1511,8 @@ function renderAll(){
   document.getElementById('kpiTickets').textContent = ticketCount;
 
   // ---- Project / entity chart (dimension + measure fully adjustable) ----
-  const projectLocked = projectFilterEl.value !== 'ALL';
+  const projectSelForLock = projectMS.getSelected();
+  const projectLocked = projectSelForLock.length === 1;
   const projectDimSelection = projectChartDimEl.value; // 'auto' or explicit DIMENSIONS key
   const projectDimKey = projectDimSelection === 'auto'
     ? (projectLocked ? 'module' : 'project')
@@ -1245,10 +1523,10 @@ function renderAll(){
   const dimLabel = projDim.label.toLowerCase();
 
   document.getElementById('projectPanelHeading').textContent = (projectDimSelection === 'auto' && projectLocked)
-    ? 'Effort by entity — ' + projectFilterEl.value
+    ? 'Effort by entity — ' + projectSelForLock[0]
     : 'Effort by ' + dimLabel;
   document.getElementById('projectPanelSub').textContent = (projectDimSelection === 'auto' && projectLocked)
-    ? projMeasure.label + ' logged per module / feature within ' + projectFilterEl.value
+    ? projMeasure.label + ' logged per module / feature within ' + projectSelForLock[0]
     : projMeasure.label + ' logged per ' + dimLabel + ', heaviest freight first';
   document.getElementById('projectLegendLabel').textContent = 'Effort (' + projMeasure.label.toLowerCase() + ')';
   document.getElementById('projectChart').setAttribute('aria-label',
@@ -1519,7 +1797,7 @@ function escHtml(v){
 let rawTableSortCol = 'date', rawTableSortDir = 'desc', rawTablePage = 1, lastRawFilterKey = '';
 function renderRawTable(data, summary){
   // reset to page 1 only when the underlying filtered set actually changed (not on sort/pagination clicks)
-  const filterKey = JSON.stringify([employeeFilterEl.value, projectFilterEl.value, natureFilterEl.value, searchBoxEl.value, dateFromEl.value, dateToEl.value]);
+  const filterKey = JSON.stringify([employeeMS.getSelected(), projectMS.getSelected(), natureMS.getSelected(), searchKeywords, dateFromEl.value, dateToEl.value]);
   if(filterKey !== lastRawFilterKey){ rawTablePage = 1; lastRawFilterKey = filterKey; }
 
   const sorted = data.slice().sort((a,b)=>{
@@ -1541,17 +1819,18 @@ function renderRawTable(data, summary){
   tbody.innerHTML = '';
   pageRows.forEach(r=>{
     const tr = document.createElement('tr');
+    const statusVal = escHtml(r.status);
     tr.innerHTML =
-      '<td>'+escHtml(r.dateDisp)+'</td>'+
-      '<td>'+escHtml(r.employee)+'</td>'+
-      '<td class="proj">'+escHtml(r.project)+'</td>'+
-      '<td>'+escHtml(r.module||'—')+'</td>'+
-      '<td>'+escHtml(r.nature)+'</td>'+
-      '<td>'+escHtml(r.ticket||'—')+'</td>'+
-      '<td>'+escHtml(r.desc||'')+'</td>'+
-      '<td class="num">'+Math.round(r.effort)+'</td>'+
-      '<td><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span></td>'+
-      '<td>'+escHtml(r.remarks||'')+'</td>';
+      '<td title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
+      '<td title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
+      '<td class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
+      '<td title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
+      '<td title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
+      '<td title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
+      '<td title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
+      '<td class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
+      '<td title="'+statusVal+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+statusVal+'</span></td>'+
+      '<td title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
     tbody.appendChild(tr);
   });
 
@@ -1567,9 +1846,83 @@ function renderRawTable(data, summary){
   });
 }
 
+// ---- raw table column widths: persisted, draggable resize handles ----
+const RAW_TABLE_COLS = ['date','employee','project','module','nature','ticket','desc','effort','status','remarks'];
+const RAW_TABLE_DEFAULT_WIDTHS = {date:95,employee:120,project:110,module:130,nature:110,ticket:130,desc:280,effort:70,status:110,remarks:170};
+const RAW_TABLE_WIDTHS_KEY = 'effortManifestDashboard.rawTableColWidths.v1';
+
+function loadRawTableWidths(){
+  try{
+    const raw = localStorage.getItem(RAW_TABLE_WIDTHS_KEY);
+    const parsed = raw ? JSON.parse(raw) : {};
+    return Object.assign({}, RAW_TABLE_DEFAULT_WIDTHS, parsed);
+  } catch(e){ return Object.assign({}, RAW_TABLE_DEFAULT_WIDTHS); }
+}
+function saveRawTableWidths(){
+  try{ localStorage.setItem(RAW_TABLE_WIDTHS_KEY, JSON.stringify(rawTableWidths)); } catch(e){}
+}
+let rawTableWidths = loadRawTableWidths();
+
+function applyRawTableColWidths(){
+  RAW_TABLE_COLS.forEach(col=>{
+    const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
+    if(colEl) colEl.style.width = rawTableWidths[col] + 'px';
+  });
+}
+applyRawTableColWidths();
+
+document.querySelectorAll('#rawTable .col-resize-handle').forEach(handle=>{
+  handle.addEventListener('click', e=>e.stopPropagation());
+  handle.addEventListener('mousedown', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    const th = handle.closest('th');
+    const col = th.dataset.col;
+    const startX = e.clientX;
+    const startWidth = rawTableWidths[col] || th.offsetWidth;
+    handle.classList.add('active');
+    function onMove(ev){
+      const newWidth = Math.max(50, startWidth + (ev.clientX - startX));
+      rawTableWidths[col] = newWidth;
+      const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
+      if(colEl) colEl.style.width = newWidth + 'px';
+    }
+    function onUp(){
+      document.removeEventListener('mousemove', onMove);
+      document.removeEventListener('mouseup', onUp);
+      handle.classList.remove('active');
+      saveRawTableWidths();
+    }
+    document.addEventListener('mousemove', onMove);
+    document.addEventListener('mouseup', onUp);
+  });
+  handle.addEventListener('touchstart', (e)=>{
+    e.stopPropagation();
+    const th = handle.closest('th');
+    const col = th.dataset.col;
+    const startX = e.touches[0].clientX;
+    const startWidth = rawTableWidths[col] || th.offsetWidth;
+    handle.classList.add('active');
+    function onMove(ev){
+      const newWidth = Math.max(50, startWidth + (ev.touches[0].clientX - startX));
+      rawTableWidths[col] = newWidth;
+      const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
+      if(colEl) colEl.style.width = newWidth + 'px';
+    }
+    function onUp(){
+      document.removeEventListener('touchmove', onMove);
+      document.removeEventListener('touchend', onUp);
+      handle.classList.remove('active');
+      saveRawTableWidths();
+    }
+    document.addEventListener('touchmove', onMove, {passive:true});
+    document.addEventListener('touchend', onUp);
+  }, {passive:true});
+});
+
 document.querySelectorAll('#rawTable th.sortable').forEach(th=>{
   th.addEventListener('click', ()=>{
-    const col = th.dataset.rcol;
+    const col = th.dataset.col;
     if(rawTableSortCol === col){ rawTableSortDir = rawTableSortDir === 'asc' ? 'desc' : 'asc'; }
     else { rawTableSortCol = col; rawTableSortDir = col === 'effort' ? 'desc' : 'asc'; }
     rawTablePage = 1;
@@ -1601,7 +1954,7 @@ document.getElementById('rawTableExportBtn').addEventListener('click', ()=>{
   });
   const rows = sorted.map(r=>({
     Date: r.date, Employee: r.employee, Project: r.project, 'Module / Feature': r.module,
-    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Task Description': r.desc,
+    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Ticket System': r.ticketSystem || '', 'Task Description': r.desc,
     'Effort (Minutes)': r.effort, Status: r.status, Remarks: r.remarks || ''
   }));
   const csv = Papa.unparse(rows);
@@ -1610,9 +1963,43 @@ document.getElementById('rawTableExportBtn').addEventListener('click', ()=>{
 });
 
 
-dateFromEl.addEventListener('change', renderAll);
-dateToEl.addEventListener('change', renderAll);
-document.getElementById('resetRangeBtn').addEventListener('click', ()=>{ setDateBoundsFromData(ACTIVE_DATA); renderAll(); });
+function applyQuickRange(preset){
+  if(!ACTIVE_DATA.length) return;
+  const dates = ACTIVE_DATA.map(d=>d.date).sort();
+  const minDate = dates[0], maxDate = dates[dates.length-1];
+  const maxD = new Date(maxDate+'T00:00:00Z');
+  const iso = d => d.toISOString().slice(0,10);
+  let from, to;
+  if(preset === 'this_month'){
+    from = iso(new Date(Date.UTC(maxD.getUTCFullYear(), maxD.getUTCMonth(), 1)));
+    to = maxDate;
+  } else if(preset === 'last_month'){
+    const lm = new Date(Date.UTC(maxD.getUTCFullYear(), maxD.getUTCMonth()-1, 1));
+    from = iso(lm);
+    to = iso(new Date(Date.UTC(lm.getUTCFullYear(), lm.getUTCMonth()+1, 0)));
+  } else if(preset === 'last_3_months'){
+    from = iso(new Date(Date.UTC(maxD.getUTCFullYear(), maxD.getUTCMonth()-2, 1)));
+    to = maxDate;
+  } else if(preset === 'this_quarter'){
+    const qStartMonth = Math.floor(maxD.getUTCMonth()/3)*3;
+    from = iso(new Date(Date.UTC(maxD.getUTCFullYear(), qStartMonth, 1)));
+    to = maxDate;
+  } else if(preset === 'this_year'){
+    from = iso(new Date(Date.UTC(maxD.getUTCFullYear(), 0, 1)));
+    to = maxDate;
+  } else if(preset === 'all_time'){
+    from = minDate; to = maxDate;
+  } else {
+    return; // 'custom' — leave From/To as they are
+  }
+  dateFromEl.value = from < minDate ? minDate : from;
+  dateToEl.value = to;
+  renderAll();
+}
+quickRangeEl.addEventListener('change', ()=> applyQuickRange(quickRangeEl.value));
+dateFromEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; renderAll(); });
+dateToEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; renderAll(); });
+document.getElementById('resetRangeBtn').addEventListener('click', ()=>{ quickRangeEl.value = 'custom'; setDateBoundsFromData(ACTIVE_DATA); renderAll(); });
 
 const trendGranularityEl = document.getElementById('trendGranularity');
 trendGranularityEl.addEventListener('change', renderAll);
@@ -1628,19 +2015,10 @@ const statusChartMeasureEl = document.getElementById('statusChartMeasure');
 [projectChartDimEl, projectChartMeasureEl, natureChartDimEl, natureChartMeasureEl, trendMetricEl, trendSplitByEl, statusChartDimEl, statusChartMeasureEl]
   .forEach(el => el.addEventListener('change', renderAll));
 
-[employeeFilterEl, projectFilterEl, natureFilterEl].forEach(el=>{
-  el.addEventListener('change', renderAll);
-});
 document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
-  [employeeFilterEl, projectFilterEl, natureFilterEl].forEach(el=>el.value='ALL');
-  searchBoxEl.value = '';
+  employeeMS.clear(); projectMS.clear(); natureMS.clear();
+  clearSearchKeywords();
   renderAll();
-});
-
-let searchDebounceTimer = null;
-searchBoxEl.addEventListener('input', ()=>{
-  clearTimeout(searchDebounceTimer);
-  searchDebounceTimer = setTimeout(renderAll, 250);
 });
 
 // ---- saved filters (persisted to localStorage so they survive a page reload) ----
@@ -1665,6 +2043,7 @@ function persistSavedFilters(){
 let SAVED_FILTERS = loadSavedFiltersFromStorage(); // { name, from, to, employee, project, nature, search }
 const savedFilterNoteEl = document.getElementById('savedFilterNote');
 const savedFiltersToggleEl = document.getElementById('savedFiltersToggle');
+savedFiltersToggleEl.dataset.menuFor = 'savedFiltersMenu';
 const savedFiltersToggleLabelEl = document.getElementById('savedFiltersToggleLabel');
 const savedFiltersMenuEl = document.getElementById('savedFiltersMenu');
 let selectedSavedFilterName = '';
@@ -1673,24 +2052,28 @@ function currentFilterState(){
   return {
     from: dateFromEl.value,
     to: dateToEl.value,
-    employee: employeeFilterEl.value,
-    project: projectFilterEl.value,
-    nature: natureFilterEl.value,
-    search: searchBoxEl.value
+    employee: employeeMS.getSelected(),
+    project: projectMS.getSelected(),
+    nature: natureMS.getSelected(),
+    search: getSearchKeywords()
   };
 }
 
-function optionExists(sel, value){
-  return Array.from(sel.options).some(o=>o.value===value);
+// accepts either the new array format or an old single-value string ('ALL' or one name) from filters saved before multi-select existed
+function toArraySelection(v){
+  if(Array.isArray(v)) return v;
+  if(!v || v==='ALL') return [];
+  return [v];
 }
 
 function applyFilterState(f){
   if(f.from) dateFromEl.value = f.from;
   if(f.to) dateToEl.value = f.to;
-  employeeFilterEl.value = optionExists(employeeFilterEl, f.employee) ? f.employee : 'ALL';
-  projectFilterEl.value = optionExists(projectFilterEl, f.project) ? f.project : 'ALL';
-  natureFilterEl.value = optionExists(natureFilterEl, f.nature) ? f.nature : 'ALL';
-  searchBoxEl.value = f.search || '';
+  quickRangeEl.value = 'custom';
+  employeeMS.setSelected(toArraySelection(f.employee));
+  projectMS.setSelected(toArraySelection(f.project));
+  natureMS.setSelected(toArraySelection(f.nature));
+  setSearchKeywords(f.search); // handles both new array format and old comma-separated string
   renderAll();
   savedFilterNoteEl.textContent = 'Applied "' + f.name + '".';
 }
@@ -1749,6 +2132,8 @@ function populateSavedFiltersSelect(){
 
 savedFiltersToggleEl.addEventListener('click', (e)=>{
   e.stopPropagation();
+  const willOpen = savedFiltersMenuEl.style.display !== 'block';
+  if(willOpen) closeAllDropdowns(savedFiltersMenuEl);
   toggleSavedFiltersMenu();
 });
 document.addEventListener('click', (e)=>{
@@ -1818,7 +2203,7 @@ document.getElementById('exportCsvBtn').addEventListener('click', ()=>{
   if(!data.length){ exportNoteEl.textContent = 'Nothing to export — no entries match the current filters.'; return; }
   const rows = data.map(r=>({
     Date: r.date, Employee: r.employee, Project: r.project, 'Module / Feature': r.module,
-    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Task Description': r.desc,
+    'Nature of Task': r.nature, 'Ticket #': r.ticket || '', 'Ticket System': r.ticketSystem || '', 'Task Description': r.desc,
     'Effort (Minutes)': r.effort, Status: r.status, Remarks: r.remarks || ''
   }));
   const csv = Papa.unparse(rows);
@@ -1948,8 +2333,8 @@ filesModalEl.addEventListener('click', (e)=>{
 });
 
 const CONTROLS_TO_GATE = [
-  'filesButton','dateFrom','dateTo','resetRangeBtn',
-  'employeeFilter','projectFilterGlobal','natureFilter','searchBox','resetFiltersBtn','saveFilterBtn',
+  'filesButton','dateFrom','dateTo','resetRangeBtn','quickRange',
+  'employeeFilterToggle','projectFilterToggle','natureFilterToggle','searchBoxInput','resetFiltersBtn','saveFilterBtn',
   'trendGranularity','exportCsvBtn','exportPngBtn','exportPdfBtn',
   'projectChartDim','projectChartMeasure','natureChartDim','natureChartMeasure',
   'trendMetric','trendSplitBy','statusChartDim','statusChartMeasure',
