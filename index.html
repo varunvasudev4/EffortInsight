@@ -1144,15 +1144,17 @@ function normalizeTicket(raw){
   if(!raw) return null;
   const val = String(raw).trim();
   if(!val) return null;
-  if(val.includes('/')){
-    const parts = val.split('/').map(p=>p.trim()).filter(Boolean);
-    const id = parts.length ? parts[parts.length-1] : val;
-    return { id, system: 'Zoho', display: 'Zoho: ' + id };
+  const hasSlash = val.includes('/');
+  const id = hasSlash ? (val.split('/').map(p=>p.trim()).filter(Boolean).pop() || val) : val;
+  // NAV-prefixed id always wins as Jira, even if it's embedded in a URL (e.g. a zoho.com link ending in .../NAV-1234)
+  if(/^NAV/i.test(id)){
+    return { id, system: 'Jira', display: 'Jira: ' + id };
   }
-  if(/^NAV/i.test(val)){
-    return { id: val, system: 'Jira', display: 'Jira: ' + val };
+  if(hasSlash){
+    const system = /zoho/i.test(val) ? 'Zoho' : 'Jira';
+    return { id, system, display: system + ': ' + id };
   }
-  return { id: val, system: 'Other', display: val };
+  return { id, system: 'Other', display: id };
 }
 
 function csvRowsToRecords(rows, fileName){
