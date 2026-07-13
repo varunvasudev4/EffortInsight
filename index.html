@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Effort Manifest</title>
+<title>Effort Insight</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312151c'/%3E%3Crect x='13' y='34' width='10' height='18' rx='2' fill='%233fab8f'/%3E%3Crect x='27' y='22' width='10' height='30' rx='2' fill='%23e8622c'/%3E%3Crect x='41' y='12' width='10' height='40' rx='2' fill='%23d1b954'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -504,8 +505,8 @@
 
   th.sortable{cursor:pointer;user-select:none;}
   th.sortable:hover{color:var(--text);}
-  #rawTable{table-layout:fixed;border-collapse:collapse;}
-  #rawTable th{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:14px;}
+  #rawTable{table-layout:fixed;border-collapse:separate;border-spacing:0;}
+  #rawTable th{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:28px;}
   #rawTable td{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0;}
   .col-resize-handle{
     position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none;z-index:2;
@@ -515,6 +516,35 @@
     content:'';position:absolute;top:2px;bottom:2px;right:3px;width:2px;background:var(--border);
   }
   .col-resize-handle:hover::after, .col-resize-handle.active::after{background:var(--orange);}
+  .col-pin-icon{
+    position:absolute;top:50%;right:12px;transform:translateY(-50%);
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    line-height:1;padding:2px;z-index:2;opacity:.6;
+  }
+  .col-pin-icon:hover{color:var(--text);opacity:1;}
+  .col-pin-icon.pin-left{color:var(--orange);opacity:1;}
+  .col-pin-icon.pin-right{color:var(--teal);opacity:1;}
+  #rawTable thead th{position:sticky;top:0;z-index:5;background:var(--panel);}
+  .pinned-col{position:sticky !important;z-index:2;background:var(--panel);}
+  #rawTable thead th.pinned-col{z-index:8;}
+  .pinned-col-edge-left{box-shadow:2px 0 0 var(--border);}
+  .pinned-col-edge-right{box-shadow:-2px 0 0 var(--border);}
+  .col-toggle-row{display:flex;align-items:center;gap:8px;padding:6px 8px;}
+  .col-toggle-row .dropdown-item-label{flex:1;}
+  .col-toggle-row input[type="checkbox"]{accent-color:var(--orange);width:14px;height:14px;flex-shrink:0;cursor:pointer;}
+  .stale-flag{
+    display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;
+    font-size:10px;font-family:'IBM Plex Mono', monospace;background:var(--orange-soft);color:var(--orange);border:1px solid var(--orange);
+  }
+  .snapshot-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;}
+  .snapshot-col{flex:1;min-width:180px;}
+  .snapshot-col h3{margin:0 0 8px;font-size:12px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+  .snapshot-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11.5px;font-family:'IBM Plex Mono', monospace;}
+  .snapshot-bar-label{width:96px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .snapshot-bar-track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;}
+  .snapshot-bar-fill{height:100%;border-radius:4px;background:var(--orange);}
+  .snapshot-bar-val{width:52px;flex-shrink:0;text-align:right;color:var(--text-mute);}
   .sort-arrow{font-size:9px;color:var(--orange);}
 
   .fc-apply{
@@ -681,12 +711,32 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="ticketHistoryModal" style="display:none;">
+  <div class="modal-box" style="max-width:760px;">
+    <p class="eyebrow" style="margin-bottom:6px;">Ticket history</p>
+    <h3 id="ticketHistoryTitle">Ticket</h3>
+    <p class="modal-sub" id="ticketHistorySub"></p>
+    <div style="max-height:52vh;overflow-y:auto;margin:14px 0 4px;">
+      <table id="ticketHistoryTable" style="min-width:100%;">
+        <thead><tr>
+          <th>Date</th><th>Employee</th><th>Project</th><th>Module</th><th>Nature</th>
+          <th style="text-align:right;">Min</th><th>Status</th><th>Description</th><th>Remarks</th>
+        </tr></thead>
+        <tbody id="ticketHistoryBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-upload" id="ticketHistoryCloseBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
 
   <div class="header">
     <div>
       <p class="eyebrow">Effort manifest</p>
-      <h1>Engineering effort dashboard</h1>
+      <h1>Effort Insight</h1>
       <p class="sub" id="headerSub">Upload a CSV or Excel file above to populate this dashboard</p>
     </div>
     <div class="manifest-id">
@@ -818,11 +868,35 @@
       <div class="t-val" id="kpiDays">—<span class="t-unit">days</span></div>
       <div class="t-foot" id="kpiDaysFoot">— avg hrs / day worked</div>
     </div>
-    <div class="ticket">
+    <div class="ticket" id="kpiTicketsCard" style="cursor:pointer;" title="Double-click to see every ticketed entry, by date">
       <div class="t-label">Support tickets</div>
       <div class="stub-line"></div>
       <div class="t-val" id="kpiTickets">—</div>
-      <div class="t-foot">Entries with a ticket reference</div>
+      <div class="t-foot">Entries with a ticket reference · double-click for details</div>
+    </div>
+  </div>
+
+  <div class="panel" id="employeeSnapshotPanel" style="display:none;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 id="snapshotHeading">Personal snapshot</h2>
+        <p class="p-sub" id="snapshotSub" style="margin-bottom:0;">Scoped to the selected employee and current filters</p>
+      </div>
+    </div>
+    <div class="snapshot-row" id="snapshotStats"></div>
+    <div class="snapshot-row">
+      <div class="snapshot-col">
+        <h3>Top projects (hrs)</h3>
+        <div id="snapshotProjects"></div>
+      </div>
+      <div class="snapshot-col">
+        <h3>Top task nature (hrs)</h3>
+        <div id="snapshotNature"></div>
+      </div>
+      <div class="snapshot-col">
+        <h3>Status mix (tasks)</h3>
+        <div id="snapshotStatus"></div>
+      </div>
     </div>
   </div>
 
@@ -995,10 +1069,52 @@
   <div class="panel" style="margin-top:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
       <div>
+        <h2>Ticket effort rollup</h2>
+        <p class="p-sub" id="ticketRollupSub" style="margin-bottom:0;">Every ticket's total time, span, and current status — click a header to sort</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="control-group">
+          <label for="staleOnlyToggle">&nbsp;</label>
+          <label style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono', monospace;font-size:11.5px;color:var(--text-mute);cursor:pointer;">
+            <input type="checkbox" id="staleOnlyToggle" disabled style="accent-color:var(--orange);width:14px;height:14px;">
+            Stale only (open ≥7 days, not completed)
+          </label>
+        </div>
+      </div>
+    </div>
+    <div style="max-height:340px;overflow:auto;margin-top:10px;">
+      <table id="ticketRollupTable" style="min-width:760px;">
+        <thead><tr>
+          <th class="sortable" data-tcol="ticket">Ticket <span class="sort-arrow" data-tarrow="ticket"></span></th>
+          <th class="sortable" data-tcol="system">System <span class="sort-arrow" data-tarrow="system"></span></th>
+          <th class="sortable" data-tcol="minutes" style="text-align:right;">Hours <span class="sort-arrow" data-tarrow="minutes"></span></th>
+          <th class="sortable" data-tcol="count" style="text-align:right;">Entries <span class="sort-arrow" data-tarrow="count"></span></th>
+          <th class="sortable" data-tcol="employees">Employees <span class="sort-arrow" data-tarrow="employees"></span></th>
+          <th class="sortable" data-tcol="first">First logged <span class="sort-arrow" data-tarrow="first"></span></th>
+          <th class="sortable" data-tcol="last">Last logged <span class="sort-arrow" data-tarrow="last"></span></th>
+          <th class="sortable" data-tcol="daysOpen" style="text-align:right;">Days open <span class="sort-arrow" data-tarrow="daysOpen"></span></th>
+          <th class="sortable" data-tcol="status">Latest status <span class="sort-arrow" data-tarrow="status"></span></th>
+        </tr></thead>
+        <tbody id="ticketRollupBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
         <h2>Full log entries</h2>
         <p class="p-sub" id="rawTableSub" style="margin-bottom:0;">Every filtered row, every column — click a header to sort</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="control-group" id="columnsToggleGroup" style="position:relative;">
+          <label for="columnsToggle">Columns</label>
+          <button class="dropdown-toggle" id="columnsToggle" type="button" disabled>
+            <span id="columnsToggleLabel">Columns</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+          <div class="dropdown-menu" id="columnsMenu" style="display:none;"></div>
+        </div>
         <div class="control-group">
           <label for="rawTablePageSize">Rows per page</label>
           <select id="rawTablePageSize" disabled>
@@ -1018,16 +1134,16 @@
           <col data-col="status"><col data-col="remarks">
         </colgroup>
         <thead><tr>
-          <th class="sortable" data-col="date">Date <span class="sort-arrow" data-rarrow="date"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="project">Project <span class="sort-arrow" data-rarrow="project"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="module">Module <span class="sort-arrow" data-rarrow="module"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span><span class="col-resize-handle"></span></th>
-          <th data-col="desc">Description<span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="status">Status <span class="sort-arrow" data-rarrow="status"></span><span class="col-resize-handle"></span></th>
-          <th data-col="remarks">Remarks<span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="date">Date <span class="sort-arrow" data-rarrow="date"></span><button type="button" class="col-pin-icon" data-col="date" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span><button type="button" class="col-pin-icon" data-col="employee" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="project">Project <span class="sort-arrow" data-rarrow="project"></span><button type="button" class="col-pin-icon" data-col="project" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="module">Module <span class="sort-arrow" data-rarrow="module"></span><button type="button" class="col-pin-icon" data-col="module" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span><button type="button" class="col-pin-icon" data-col="nature" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span><button type="button" class="col-pin-icon" data-col="ticket" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="desc">Description<button type="button" class="col-pin-icon" data-col="desc" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span><button type="button" class="col-pin-icon" data-col="effort" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="status">Status <span class="sort-arrow" data-rarrow="status"></span><button type="button" class="col-pin-icon" data-col="status" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="remarks">Remarks<button type="button" class="col-pin-icon" data-col="remarks" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
         </tr></thead>
         <tbody id="rawTableBody"></tbody>
       </table>
@@ -1486,6 +1602,9 @@ function renderAll(){
     document.getElementById('natureLegend').innerHTML = '';
     document.getElementById('moduleTableBody').innerHTML = '';
     document.getElementById('recentLog').innerHTML = '';
+    document.getElementById('ticketRollupBody').innerHTML = '';
+    document.getElementById('ticketRollupSub').textContent = 'Every ticket\'s total time, span, and current status — click a header to sort';
+    document.getElementById('employeeSnapshotPanel').style.display = 'none';
     document.getElementById('rawTableBody').innerHTML = '';
     document.getElementById('rawTablePageInfo').textContent = '';
     document.getElementById('rawTableSub').textContent = 'Every filtered row, every column — click a header to sort';
@@ -1511,6 +1630,47 @@ function renderAll(){
 
   const ticketCount = data.filter(d=>d.ticket).length;
   document.getElementById('kpiTickets').textContent = ticketCount;
+
+  // ---- employee self-view: personal snapshot shown when exactly one employee is selected ----
+  const snapshotPanel = document.getElementById('employeeSnapshotPanel');
+  const selectedEmployees = employeeMS.getSelected();
+  if(selectedEmployees.length === 1){
+    const empName = selectedEmployees[0];
+    snapshotPanel.style.display = '';
+    document.getElementById('snapshotHeading').textContent = empName + ' — personal snapshot';
+    document.getElementById('snapshotSub').textContent = data.length + ' entries · ' + (summary ? summary : 'all projects/natures in range');
+
+    document.getElementById('snapshotStats').innerHTML = [
+      ['Hours logged', totalHrs.toFixed(1) + ' hrs'],
+      ['Tasks', data.length],
+      ['Completion', compRate.toFixed(0) + '%'],
+      ['Active days', activeDays],
+      ['Avg hrs/day', avgPerDay.toFixed(1)]
+    ].map(([label,val])=>
+      '<div class="snapshot-col" style="min-width:120px;flex:0 0 auto;">'+
+        '<h3>'+label+'</h3>'+
+        '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:22px;font-weight:600;color:var(--text);">'+val+'</div>'+
+      '</div>'
+    ).join('');
+
+    function renderMiniBars(containerId, entries, unit){
+      const container = document.getElementById(containerId);
+      if(!entries.length){ container.innerHTML = '<div style="color:var(--text-dim);font-size:11.5px;">No data</div>'; return; }
+      const max = Math.max(...entries.map(e=>e[1]));
+      container.innerHTML = entries.map(([label,val])=>
+        '<div class="snapshot-bar-row">'+
+          '<span class="snapshot-bar-label" title="'+escHtml(label)+'">'+escHtml(label)+'</span>'+
+          '<span class="snapshot-bar-track"><span class="snapshot-bar-fill" style="width:'+(max?(val/max*100):0)+'%;"></span></span>'+
+          '<span class="snapshot-bar-val">'+val+unit+'</span>'+
+        '</div>'
+      ).join('');
+    }
+    renderMiniBars('snapshotProjects', buildBreakdown(data, 'project', 'hours', 5).entries, 'h');
+    renderMiniBars('snapshotNature', buildBreakdown(data, 'nature', 'hours', 5).entries, 'h');
+    renderMiniBars('snapshotStatus', buildBreakdown(data, 'status', 'count', 6).entries, '');
+  } else {
+    snapshotPanel.style.display = 'none';
+  }
 
   // ---- Project / entity chart (dimension + measure fully adjustable) ----
   const projectSelForLock = projectMS.getSelected();
@@ -1720,6 +1880,7 @@ function renderAll(){
 
   renderModuleTable(data);
   renderRecentLog(data, summary);
+  renderTicketRollup(data);
   renderRawTable(data, summary);
 }
 
@@ -1727,7 +1888,10 @@ function renderAll(){
 let tableSortCol = 'min';
 let tableSortDir = 'desc';
 
+let moduleTableRows = [];
+let moduleTableSourceData = [];
 function renderModuleTable(data){
+  moduleTableSourceData = data;
   const tbody = document.getElementById('moduleTableBody');
   const sub = document.getElementById('tableSub');
   const byModule = {};
@@ -1746,14 +1910,18 @@ function renderModuleTable(data){
     return 0;
   });
   rows = rows.slice(0,25);
+  moduleTableRows = rows;
   tbody.innerHTML = '';
-  rows.forEach(r=>{
+  rows.forEach((r, idx)=>{
     const tr = document.createElement('tr');
+    tr.dataset.rowIndex = idx;
+    tr.title = 'Double-click to see this entity\'s full history';
+    tr.style.cursor = 'pointer';
     tr.innerHTML = '<td class="proj">'+r.project+'</td><td>'+r.module+'</td><td class="num">'+Math.round(r.min)+'</td>';
     tbody.appendChild(tr);
   });
   const summary = filterSummaryText();
-  sub.textContent = summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol;
+  sub.textContent = (summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol) + ' — double-click a row for its history';
 
   document.querySelectorAll('#entitiesTable .sort-arrow').forEach(el=>{
     el.textContent = el.dataset.arrow === tableSortCol ? (tableSortDir==='asc' ? '▲' : '▼') : '';
@@ -1767,6 +1935,28 @@ document.querySelectorAll('#entitiesTable th.sortable').forEach(th=>{
     else { tableSortCol = col; tableSortDir = col === 'min' ? 'desc' : 'asc'; }
     renderModuleTable(getFiltered());
   });
+});
+document.getElementById('moduleTableBody').addEventListener('dblclick', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr || !tr.dataset.rowIndex) return;
+  const row = moduleTableRows[+tr.dataset.rowIndex];
+  if(!row) return;
+  const entries = moduleTableSourceData.filter(d => d.project === row.project && (d.module||'—') === row.module)
+    .slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const hrs = (row.min/60).toFixed(1);
+  const employees = new Set(entries.map(e=>e.employee)).size;
+  const subtitle = entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' · ' + hrs + ' hrs total · ' + employees + ' ' + (employees===1?'person':'people');
+  openHistoryModal(row.project + ' / ' + row.module, subtitle, entries);
+});
+
+document.getElementById('kpiTicketsCard').addEventListener('dblclick', ()=>{
+  const data = getFiltered();
+  const entries = data.filter(d=>d.ticket).slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  if(!entries.length) return;
+  const hrs = (entries.reduce((s,r)=>s+r.effort,0)/60).toFixed(1);
+  const uniqueTickets = new Set(entries.map(e=>e.ticket)).size;
+  const subtitle = entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' across ' + uniqueTickets + ' unique ticket' + (uniqueTickets===1?'':'s') + ' · ' + hrs + ' hrs total';
+  openHistoryModal('All support ticket entries', subtitle, entries);
 });
 
 
@@ -1796,6 +1986,130 @@ function renderRecentLog(data, summary){
 function escHtml(v){
   return String(v==null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// ---- ticket effort rollup: every ticket's total time, span, and current status ----
+function buildTicketRollup(data){
+  if(!data.length) return [];
+  const byTicket = {};
+  data.forEach(r=>{
+    if(!r.ticket) return;
+    if(!byTicket[r.ticket]){
+      byTicket[r.ticket] = { ticket:r.ticketDisplay||r.ticket, system:r.ticketSystem||'Other', minutes:0, count:0, employees:new Set(), first:r.date, last:r.date, lastStatus:r.status, lastDate:r.date };
+    }
+    const t = byTicket[r.ticket];
+    t.minutes += r.effort;
+    t.count += 1;
+    t.employees.add(r.employee);
+    if(r.date < t.first) t.first = r.date;
+    if(r.date > t.last) t.last = r.date;
+    if(r.date >= t.lastDate){ t.lastDate = r.date; t.lastStatus = r.status; }
+  });
+  const maxDate = data.reduce((m,r)=> r.date > m ? r.date : m, data[0].date);
+  return Object.entries(byTicket).map(([rawId, t])=>{
+    const daysOpen = Math.max(0, Math.round((new Date(maxDate+'T00:00:00Z') - new Date(t.first+'T00:00:00Z')) / 86400000));
+    return {
+      rawId, ticket: t.ticket, system: t.system, minutes: t.minutes, count: t.count,
+      employees: Array.from(t.employees).sort().join(', '), employeeCount: t.employees.size,
+      first: t.first, last: t.last, daysOpen, status: t.lastStatus,
+      stale: t.lastStatus !== 'Completed' && daysOpen >= 7
+    };
+  });
+}
+
+let ticketSortCol = 'minutes', ticketSortDir = 'desc';
+let ticketRollupRows = [];
+let ticketRollupSourceData = [];
+function renderTicketRollup(data){
+  ticketRollupSourceData = data;
+  const rows = buildTicketRollup(data);
+  const staleOnly = document.getElementById('staleOnlyToggle').checked;
+  const shown = staleOnly ? rows.filter(r=>r.stale) : rows;
+  shown.sort((a,b)=>{
+    let av = ticketSortCol==='employees' ? a.employeeCount : a[ticketSortCol];
+    let bv = ticketSortCol==='employees' ? b.employeeCount : b[ticketSortCol];
+    if(typeof av === 'string'){ av = av.toLowerCase(); bv = String(bv).toLowerCase(); }
+    if(av<bv) return ticketSortDir==='asc' ? -1 : 1;
+    if(av>bv) return ticketSortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  ticketRollupRows = shown;
+  const tbody = document.getElementById('ticketRollupBody');
+  tbody.innerHTML = '';
+  shown.forEach((r, idx)=>{
+    const tr = document.createElement('tr');
+    tr.dataset.rowIndex = idx;
+    tr.title = 'Double-click to see this ticket\'s full history';
+    tr.style.cursor = 'pointer';
+    const empLabel = r.employeeCount===1 ? r.employees : r.employeeCount + ' people';
+    tr.innerHTML =
+      '<td title="'+escHtml(r.ticket)+'">'+escHtml(r.ticket)+'</td>'+
+      '<td>'+escHtml(r.system)+'</td>'+
+      '<td class="num">'+(r.minutes/60).toFixed(1)+'</td>'+
+      '<td class="num">'+r.count+'</td>'+
+      '<td title="'+escHtml(r.employees)+'">'+escHtml(empLabel)+'</td>'+
+      '<td>'+escHtml(r.first)+'</td>'+
+      '<td>'+escHtml(r.last)+'</td>'+
+      '<td class="num">'+r.daysOpen+'</td>'+
+      '<td><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span>'+(r.stale?'<span class="stale-flag">STALE</span>':'')+'</td>';
+    tbody.appendChild(tr);
+  });
+  document.getElementById('ticketRollupSub').textContent =
+    (rows.length ? shown.length + ' of ' + rows.length + ' tickets' + (staleOnly ? ' (stale filter on)' : '') : 'No ticket references in the current filters') + ' — click a header to sort, double-click a row for its history';
+  document.querySelectorAll('#ticketRollupTable .sort-arrow').forEach(el=>{
+    el.textContent = el.dataset.tarrow === ticketSortCol ? (ticketSortDir==='asc' ? '▲' : '▼') : '';
+  });
+}
+document.querySelectorAll('#ticketRollupTable th.sortable').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.tcol;
+    if(ticketSortCol === col){ ticketSortDir = ticketSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { ticketSortCol = col; ticketSortDir = (col==='minutes'||col==='count'||col==='daysOpen'||col==='employees') ? 'desc' : 'asc'; }
+    renderTicketRollup(getFiltered());
+  });
+});
+document.getElementById('staleOnlyToggle').addEventListener('change', ()=> renderTicketRollup(getFiltered()));
+
+// ---- ticket history modal: double-click a rollup row to see every log entry for that ticket ----
+const ticketHistoryModalEl = document.getElementById('ticketHistoryModal');
+function openHistoryModal(title, subtitle, entries){
+  document.getElementById('ticketHistoryTitle').textContent = title;
+  document.getElementById('ticketHistorySub').textContent = subtitle;
+  const tbody = document.getElementById('ticketHistoryBody');
+  tbody.innerHTML = '';
+  entries.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td>'+escHtml(r.dateDisp)+'</td>'+
+      '<td>'+escHtml(r.employee)+'</td>'+
+      '<td class="proj">'+escHtml(r.project)+'</td>'+
+      '<td>'+escHtml(r.module||'—')+'</td>'+
+      '<td>'+escHtml(r.nature)+'</td>'+
+      '<td class="num">'+Math.round(r.effort)+'</td>'+
+      '<td><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span></td>'+
+      '<td title="'+escHtml(r.desc||'')+'" style="max-width:220px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(r.desc||'')+'</td>'+
+      '<td title="'+escHtml(r.remarks||'')+'" style="max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">'+escHtml(r.remarks||'')+'</td>';
+    tbody.appendChild(tr);
+  });
+  ticketHistoryModalEl.style.display = 'flex';
+}
+function openTicketHistoryModal(rollupRow){
+  const entries = ticketRollupSourceData.filter(d => d.ticket === rollupRow.rawId).slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const subtitle =
+    entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' · ' + (rollupRow.minutes/60).toFixed(1) + ' hrs total · ' +
+    rollupRow.employeeCount + ' ' + (rollupRow.employeeCount===1?'person':'people') + ' · ' + rollupRow.first + ' → ' + rollupRow.last +
+    (rollupRow.stale ? ' · STALE (open ' + rollupRow.daysOpen + ' days)' : '');
+  openHistoryModal(rollupRow.ticket, subtitle, entries);
+}
+function closeTicketHistoryModal(){ ticketHistoryModalEl.style.display = 'none'; }
+document.getElementById('ticketHistoryCloseBtn').addEventListener('click', closeTicketHistoryModal);
+ticketHistoryModalEl.addEventListener('click', (e)=>{ if(e.target === ticketHistoryModalEl) closeTicketHistoryModal(); });
+
+document.getElementById('ticketRollupBody').addEventListener('dblclick', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr || !tr.dataset.rowIndex) return;
+  const row = ticketRollupRows[+tr.dataset.rowIndex];
+  if(row) openTicketHistoryModal(row);
+});
+
 let rawTableSortCol = 'date', rawTableSortDir = 'desc', rawTablePage = 1, lastRawFilterKey = '';
 function renderRawTable(data, summary){
   // reset to page 1 only when the underlying filtered set actually changed (not on sort/pagination clicks)
@@ -1823,18 +2137,20 @@ function renderRawTable(data, summary){
     const tr = document.createElement('tr');
     const statusVal = escHtml(r.status);
     tr.innerHTML =
-      '<td title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
-      '<td title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
-      '<td class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
-      '<td title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
-      '<td title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
-      '<td title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
-      '<td title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
-      '<td class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
-      '<td title="'+statusVal+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+statusVal+'</span></td>'+
-      '<td title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
+      '<td data-col="date" title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
+      '<td data-col="employee" title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
+      '<td data-col="project" class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
+      '<td data-col="module" title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
+      '<td data-col="nature" title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
+      '<td data-col="ticket" title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
+      '<td data-col="desc" title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
+      '<td data-col="effort" class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
+      '<td data-col="status" title="'+statusVal+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+statusVal+'</span></td>'+
+      '<td data-col="remarks" title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
     tbody.appendChild(tr);
   });
+  applyColumnVisibility();
+  applyColumnPins();
 
   document.getElementById('rawTableSub').textContent = (summary ? sorted.length + ' rows match: ' + summary : sorted.length + ' rows (no facet filters applied)') + ' — click a header to sort';
   document.getElementById('rawTablePageInfo').textContent = sorted.length
@@ -1873,6 +2189,160 @@ function applyRawTableColWidths(){
 }
 applyRawTableColWidths();
 
+// ---- raw table column show/hide + pin (frozen columns on left or right while scrolling horizontally) ----
+const RAW_TABLE_COL_LABELS = {date:'Date', employee:'Employee', project:'Project', module:'Module', nature:'Nature', ticket:'Ticket', desc:'Description', effort:'Min', status:'Status', remarks:'Remarks'};
+const RAW_TABLE_HIDDEN_KEY = 'effortManifestDashboard.rawTableHiddenCols.v1';
+const RAW_TABLE_PINNED_KEY = 'effortManifestDashboard.rawTablePinnedDir.v1';
+
+function loadColSet(key){
+  try{ const raw = localStorage.getItem(key); return new Set(raw ? JSON.parse(raw) : []); } catch(e){ return new Set(); }
+}
+function saveColSet(key, set){
+  try{ localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch(e){}
+}
+// pinnedDir maps col -> 'left' | 'right'. Reads the old left-only array format too (pre-dates two-sided pinning).
+function loadPinnedDir(){
+  try{
+    const raw = localStorage.getItem(RAW_TABLE_PINNED_KEY);
+    if(!raw) return {};
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)){ const map = {}; parsed.forEach(c=>map[c]='left'); return map; } // legacy format
+    return parsed && typeof parsed === 'object' ? parsed : {};
+  } catch(e){ return {}; }
+}
+function savePinnedDir(){
+  try{ localStorage.setItem(RAW_TABLE_PINNED_KEY, JSON.stringify(pinnedDir)); } catch(e){}
+}
+let hiddenCols = loadColSet(RAW_TABLE_HIDDEN_KEY);
+let pinnedDir = loadPinnedDir();
+
+function applyColumnVisibility(){
+  RAW_TABLE_COLS.forEach(col=>{
+    const hidden = hiddenCols.has(col);
+    const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
+    if(colEl) colEl.style.display = hidden ? 'none' : '';
+  });
+}
+applyColumnVisibility();
+
+function applyColumnPins(){
+  // left-pinned columns stack left-to-right in natural column order
+  let leftAcc = 0;
+  const leftOffset = {};
+  RAW_TABLE_COLS.forEach(col=>{
+    if(pinnedDir[col]==='left' && !hiddenCols.has(col)){
+      leftOffset[col] = leftAcc;
+      leftAcc += (rawTableWidths[col] || 100);
+    }
+  });
+  // right-pinned columns stack right-to-left, so the rightmost original column sits flush against the edge
+  let rightAcc = 0;
+  const rightOffset = {};
+  for(let i=RAW_TABLE_COLS.length-1; i>=0; i--){
+    const col = RAW_TABLE_COLS[i];
+    if(pinnedDir[col]==='right' && !hiddenCols.has(col)){
+      rightOffset[col] = rightAcc;
+      rightAcc += (rawTableWidths[col] || 100);
+    }
+  }
+  RAW_TABLE_COLS.forEach((col, idx)=>{
+    const dir = hiddenCols.has(col) ? null : pinnedDir[col];
+    const isLastLeftPinned = dir==='left' && RAW_TABLE_COLS.slice(idx+1).every(c => pinnedDir[c]!=='left' || hiddenCols.has(c));
+    const isFirstRightPinned = dir==='right' && RAW_TABLE_COLS.slice(0, idx).every(c => pinnedDir[c]!=='right' || hiddenCols.has(c));
+    const cells = document.querySelectorAll('#rawTable th[data-col="'+col+'"], #rawTable td[data-col="'+col+'"]');
+    cells.forEach(cell=>{
+      cell.style.left = '';
+      cell.style.right = '';
+      cell.classList.remove('pinned-col', 'pinned-col-edge-left', 'pinned-col-edge-right');
+      if(dir==='left'){
+        cell.style.left = leftOffset[col] + 'px';
+        cell.classList.add('pinned-col');
+        if(isLastLeftPinned) cell.classList.add('pinned-col-edge-left');
+      } else if(dir==='right'){
+        cell.style.right = rightOffset[col] + 'px';
+        cell.classList.add('pinned-col');
+        if(isFirstRightPinned) cell.classList.add('pinned-col-edge-right');
+      }
+    });
+  });
+}
+applyColumnPins();
+
+function updatePinIcon(icon, col){
+  const dir = pinnedDir[col];
+  icon.classList.remove('pin-left', 'pin-right');
+  if(dir === 'left'){
+    icon.classList.add('pin-left');
+    icon.title = 'Pinned left — click to pin right instead';
+  } else if(dir === 'right'){
+    icon.classList.add('pin-right');
+    icon.title = 'Pinned right — click to unpin';
+  } else {
+    icon.title = 'Click to pin this column to the left';
+  }
+}
+document.querySelectorAll('#rawTable .col-pin-icon').forEach(icon=>{
+  const col = icon.dataset.col;
+  updatePinIcon(icon, col);
+  icon.addEventListener('click', (e)=>{
+    e.preventDefault();
+    e.stopPropagation();
+    // cycle: unpinned -> pinned left -> pinned right -> unpinned
+    if(pinnedDir[col] === 'left') pinnedDir[col] = 'right';
+    else if(pinnedDir[col] === 'right') delete pinnedDir[col];
+    else pinnedDir[col] = 'left';
+    updatePinIcon(icon, col);
+    savePinnedDir();
+    applyColumnPins();
+    updateColumnsToggleLabel();
+  });
+});
+
+function buildColumnsMenu(){
+  const menu = document.getElementById('columnsMenu');
+  menu.innerHTML = '';
+  RAW_TABLE_COLS.forEach(col=>{
+    const row = document.createElement('div');
+    row.className = 'dropdown-item col-toggle-row';
+    const cb = document.createElement('input');
+    cb.type = 'checkbox';
+    cb.checked = !hiddenCols.has(col);
+    cb.addEventListener('change', ()=>{
+      if(cb.checked) hiddenCols.delete(col); else hiddenCols.add(col);
+      saveColSet(RAW_TABLE_HIDDEN_KEY, hiddenCols);
+      applyColumnVisibility();
+      applyColumnPins();
+      updateColumnsToggleLabel();
+    });
+    const label = document.createElement('span');
+    label.className = 'dropdown-item-label';
+    label.textContent = RAW_TABLE_COL_LABELS[col];
+    row.appendChild(cb);
+    row.appendChild(label);
+    menu.appendChild(row);
+  });
+}
+function updateColumnsToggleLabel(){
+  const parts = [];
+  if(hiddenCols.size) parts.push((RAW_TABLE_COLS.length - hiddenCols.size) + '/' + RAW_TABLE_COLS.length + ' shown');
+  document.getElementById('columnsToggleLabel').textContent = parts.length ? parts.join(' · ') : 'Columns';
+}
+buildColumnsMenu();
+updateColumnsToggleLabel();
+
+const columnsToggleEl = document.getElementById('columnsToggle');
+const columnsMenuEl = document.getElementById('columnsMenu');
+columnsToggleEl.dataset.menuFor = 'columnsMenu';
+columnsToggleEl.addEventListener('click', (e)=>{
+  if(columnsToggleEl.disabled) return;
+  e.stopPropagation();
+  const willOpen = columnsMenuEl.style.display !== 'block';
+  closeAllDropdowns(willOpen ? columnsMenuEl : null);
+  columnsMenuEl.style.display = willOpen ? 'block' : 'none';
+  columnsToggleEl.classList.toggle('open', willOpen);
+});
+columnsMenuEl.addEventListener('click', e=>e.stopPropagation());
+
 document.querySelectorAll('#rawTable .col-resize-handle').forEach(handle=>{
   handle.addEventListener('click', e=>e.stopPropagation());
   handle.addEventListener('mousedown', (e)=>{
@@ -1888,6 +2358,7 @@ document.querySelectorAll('#rawTable .col-resize-handle').forEach(handle=>{
       rawTableWidths[col] = newWidth;
       const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
       if(colEl) colEl.style.width = newWidth + 'px';
+      applyColumnPins();
     }
     function onUp(){
       document.removeEventListener('mousemove', onMove);
@@ -1910,6 +2381,7 @@ document.querySelectorAll('#rawTable .col-resize-handle').forEach(handle=>{
       rawTableWidths[col] = newWidth;
       const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
       if(colEl) colEl.style.width = newWidth + 'px';
+      applyColumnPins();
     }
     function onUp(){
       document.removeEventListener('touchmove', onMove);
@@ -2340,7 +2812,7 @@ const CONTROLS_TO_GATE = [
   'trendGranularity','exportCsvBtn','exportPngBtn','exportPdfBtn',
   'projectChartDim','projectChartMeasure','natureChartDim','natureChartMeasure',
   'trendMetric','trendSplitBy','statusChartDim','statusChartMeasure',
-  'rawTablePageSize','rawTableExportBtn'
+  'rawTablePageSize','rawTableExportBtn','columnsToggle','staleOnlyToggle'
 ];
 function setControlsEnabled(enabled){
   CONTROLS_TO_GATE.forEach(id=>{
