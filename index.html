@@ -11,6 +11,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered', reg))
+      .catch(err => console.error(err));
+  });
+}
+</script>
 <style>
   :root{
     --bg:#12151c;
@@ -861,6 +870,19 @@
       </div>
     </div>
     <div class="control-group">
+      <label>&nbsp;</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <a class="btn btn-highlight" href="tasklogger.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          Open Task Time Logger
+        </a>
+        <button class="btn" id="refreshFromLoggerBtn" type="button" title="Re-pull the latest entries from Task Time Logger's browser storage">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          Refresh from Logger
+        </button>
+      </div>
+    </div>
+    <div class="control-group">
       <label for="quickRange">Quick range</label>
       <select id="quickRange" disabled>
         <option value="custom" selected>Custom</option>
@@ -892,7 +914,7 @@
 
 
   <div class="control-bar" id="filterRow">
-    <div class="control-group" id="employeeFilterGroup" style="position:relative;">
+    <div class="control-group" id="employeeFilterGroup" style="position:relative;display:none;">
       <label for="employeeFilterToggle">Employee</label>
       <button class="dropdown-toggle" id="employeeFilterToggle" type="button" disabled>
         <span id="employeeFilterLabel">All employees</span>
@@ -3323,11 +3345,84 @@ document.getElementById('csvFileInput').addEventListener('change', function(e){
   e.target.value = '';
 });
 
-// ---- initial render (empty until a CSV is uploaded) ----
+// ---- live data source: pull directly from Task Time Logger's browser storage ----
+// Task Time Logger (tasklogger.html) keeps its data in localStorage under 'ttl_log' /
+// 'ttl_tasks'. Since both pages are served from the same origin, this dashboard can read
+// that storage directly with no CSV export/import step required.
+const LOGGER_SOURCE_NAME = 'Task Time Logger (live)';
+
+function loadFromTaskLogger(showFeedback){
+  let entries, taskList;
+  try{ entries = JSON.parse(localStorage.getItem('ttl_log') || '[]'); }catch(e){ entries = []; }
+  try{ taskList = JSON.parse(localStorage.getItem('ttl_tasks') || '[]'); }catch(e){ taskList = []; }
+
+  if(!Array.isArray(entries) || entries.length === 0){
+    if(showFeedback) showUploadErrorModal('No entries found yet in Task Time Logger\'s browser storage. Log some time over there, then hit "Refresh from Logger" here.');
+    return false;
+  }
+
+  const records = [];
+  entries.forEach(e=>{
+    if(!e || !e.startTs) return;
+    const task = (taskList || []).find(t => t.id === e.taskId);
+    let effortMin;
+    if(e.durationSecs != null){
+      effortMin = e.durationSecs / 60;
+    } else if(task){
+      // still-running entry: derive live elapsed minutes from the task's own timer state
+      let accumMs = task.accumulatedMs || 0;
+      if(task.status === 'running' && task.segmentStart) accumMs += Date.now() - task.segmentStart;
+      effortMin = accumMs / 60000;
+    } else {
+      effortMin = 0;
+    }
+    if(!isFinite(effortMin) || effortMin <= 0) return;
+
+    const d = new Date(e.startTs);
+    const ticketInfo = normalizeTicket(e.ticket);
+    records.push({
+      date: d.toISOString().slice(0,10),
+      dateDisp: d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}),
+      employee: e.employee || 'Unspecified',
+      project: e.project || 'UNKNOWN',
+      module: e.module || '',
+      nature: e.nature || 'Unspecified',
+      ticket: ticketInfo ? ticketInfo.id : null,
+      ticketDisplay: ticketInfo ? ticketInfo.display : null,
+      ticketSystem: ticketInfo ? ticketInfo.system : null,
+      desc: e.description || e.heading || '',
+      effort: effortMin,
+      status: e.taskStatus || (task ? task.status : '') || 'Unspecified',
+      remarks: e.remark || null,
+      sourceFile: LOGGER_SOURCE_NAME
+    });
+  });
+
+  if(!records.length){
+    if(showFeedback) showUploadErrorModal('Task Time Logger has entries, but none have any effort minutes yet.');
+    return false;
+  }
+
+  records.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  addOrReplaceFile(LOGGER_SOURCE_NAME, records);
+  refreshAfterFileChange();
+  return true;
+}
+
+document.getElementById('refreshFromLoggerBtn').addEventListener('click', ()=> loadFromTaskLogger(true));
+
+// Auto-refresh if Task Time Logger (open in another tab, same browser) writes new data —
+// the native 'storage' event fires on every other same-origin tab automatically.
+window.addEventListener('storage', (ev)=>{
+  if(ev.key === 'ttl_log' || ev.key === 'ttl_tasks') loadFromTaskLogger(false);
+});
+
+// ---- initial render ----
 setControlsEnabled(false);
 populateFacetFilters(ACTIVE_DATA);
 setDateBoundsFromData(ACTIVE_DATA);
 renderAll();
+loadFromTaskLogger(false); // pull in whatever Task Time Logger already has, if anything
 </script>
 </body>
 </html>
