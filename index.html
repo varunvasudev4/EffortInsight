@@ -11,15 +11,6 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script>
-if ('serviceWorker' in navigator) {
-  window.addEventListener('load', () => {
-    navigator.serviceWorker.register('./sw.js')
-      .then(reg => console.log('SW registered', reg))
-      .catch(err => console.error(err));
-  });
-}
-</script>
 <style>
   :root{
     --bg:#12151c;
@@ -637,7 +628,7 @@ if ('serviceWorker' in navigator) {
 
   @media print{
     body{background:#fff;color:#111;padding:12px;}
-    .control-bar, #filterRow, #exportRow, #dupNote, .loading-overlay, .modal-overlay{display:none !important;}
+    .control-bar, #filterRow, #exportRow, #dupNote, .loading-overlay, .modal-overlay, .tfs-overlay{display:none !important;}
     .panel{background:#fff;border:1px solid #ccc;break-inside:avoid;}
     .ticket{background:#f0e9d8;color:#26211a;}
     h1, h2{color:#111;}
@@ -723,6 +714,76 @@ if ('serviceWorker' in navigator) {
     gap:10px;
     margin-top:18px;
   }
+
+  /* ---------- reusable "full screen table" feature ---------- */
+  /* Toggle button dropped into any table's header controls. */
+  .tfs-toggle-btn{
+    display:inline-flex;align-items:center;justify-content:center;
+    width:30px;height:30px;flex-shrink:0;
+    background:var(--panel-2);
+    border:1px solid var(--border);
+    border-radius:6px;
+    color:var(--text-mute);
+    cursor:pointer;
+  }
+  .tfs-toggle-btn:hover{color:var(--text);border-color:var(--teal);}
+  .tfs-toggle-btn.tfs-toggle-active{color:var(--orange);border-color:var(--orange);}
+  .tfs-toggle-btn svg{display:block;}
+
+  /* Single shared, always-in-the-DOM, fixed-position overlay reused by every table.
+     Deliberately NOT the browser Fullscreen API (unsupported/blocked in several
+     mobile/embedded contexts, notably iOS Safari for arbitrary elements) — a fixed
+     overlay behaves identically on every browser/device. */
+  .tfs-overlay{
+    position:fixed;
+    inset:0;
+    background:var(--bg);
+    z-index:10005; /* above regular modals (10000), below the columns-manager popup (10010) so
+                       "Columns" can still be opened on top of a full-screened table */
+    display:none;
+    flex-direction:column;
+    padding:16px 20px calc(20px + env(safe-area-inset-bottom));
+    padding-top:calc(16px + env(safe-area-inset-top));
+  }
+  .tfs-overlay-bar{
+    display:flex;align-items:center;justify-content:space-between;gap:12px;
+    margin-bottom:12px;flex-shrink:0;
+  }
+  .tfs-overlay-title{
+    font-family:'Space Grotesk', sans-serif;font-size:16px;font-weight:600;color:var(--text);
+  }
+  .tfs-overlay-hint{
+    font-family:'IBM Plex Mono', monospace;font-size:11px;color:var(--text-dim);margin-left:10px;
+  }
+  .tfs-overlay-close{
+    background:var(--panel-2);border:1px solid var(--border);border-radius:6px;color:var(--text-mute);
+    width:34px;height:34px;display:inline-flex;align-items:center;justify-content:center;cursor:pointer;flex-shrink:0;
+  }
+  .tfs-overlay-close:hover{color:var(--text);border-color:var(--red);}
+  .tfs-overlay-body{flex:1 1 auto;min-height:0;overflow:auto;display:flex;}
+
+  /* Applied to whatever panel/modal-box is currently relocated into the overlay.
+     One generic rule works for both a plain .panel and a .modal-box, which is what
+     lets the same feature cover every current (and future) table with no per-table CSS. */
+  .tfs-active-panel{
+    width:100% !important;max-width:none !important;
+    height:100% !important;max-height:none !important;
+    margin:0 !important;
+    display:flex !important;flex-direction:column;
+    overflow:hidden;
+    box-shadow:none !important;
+  }
+  /* The table's own scrollable wrapper (normally a fixed max-height like 420px) grows
+     to fill the remaining vertical space instead. */
+  .tfs-scrollfill{
+    flex:1 1 auto !important;
+    max-height:none !important;
+    min-height:0 !important;
+  }
+  @media (max-width:640px){
+    .tfs-overlay{padding:10px 10px calc(14px + env(safe-area-inset-bottom));padding-top:calc(10px + env(safe-area-inset-top));}
+    .tfs-active-panel{padding:14px !important;}
+  }
   .source-tag{
     font-family:'IBM Plex Mono', monospace;
     font-size:11.5px;
@@ -804,8 +865,8 @@ if ('serviceWorker' in navigator) {
 </div>
 
 <div class="modal-overlay" id="ticketHistoryModal" style="display:none;">
-  <div class="modal-box modal-box-wide">
-    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+  <div class="modal-box modal-box-wide" id="ticketHistoryPanel">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;" id="ticketHistoryControlsRow">
       <div>
         <p class="eyebrow" style="margin-bottom:6px;">Ticket history</p>
         <h3 id="ticketHistoryTitle">Ticket</h3>
@@ -819,7 +880,7 @@ if ('serviceWorker' in navigator) {
         </button>
       </div>
     </div>
-    <div style="max-height:52vh;overflow:auto;margin:14px 0 4px;">
+    <div style="max-height:52vh;overflow:auto;margin:14px 0 4px;" id="ticketHistoryScrollWrap">
       <table id="ticketHistoryTable" class="col-managed-table">
         <colgroup>
           <col data-col="date"><col data-col="employee"><col data-col="project"><col data-col="module">
@@ -844,6 +905,23 @@ if ('serviceWorker' in navigator) {
       <button class="btn btn-upload" id="ticketHistoryCloseBtn" type="button">Close</button>
     </div>
   </div>
+</div>
+
+<!-- Shared full-screen overlay for the "Full Screen Table" feature. One instance, reused by
+     every table: opening full screen relocates that table's own panel/modal-box in here (see
+     registerTableFullscreen / openTableFullscreen in the script below), so no table markup or
+     rendering logic is ever duplicated. -->
+<div class="tfs-overlay" id="tableFullscreenOverlay" role="dialog" aria-modal="true" aria-labelledby="tableFullscreenTitle">
+  <div class="tfs-overlay-bar">
+    <div>
+      <span class="tfs-overlay-title" id="tableFullscreenTitle"></span>
+      <span class="tfs-overlay-hint">Esc to exit</span>
+    </div>
+    <button type="button" class="tfs-overlay-close" id="tableFullscreenCloseBtn" title="Exit full screen" aria-label="Exit full screen">
+      <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="M6 6l12 12"/></svg>
+    </button>
+  </div>
+  <div class="tfs-overlay-body" id="tableFullscreenBody"></div>
 </div>
 
 <div class="wrap">
@@ -914,7 +992,7 @@ if ('serviceWorker' in navigator) {
 
 
   <div class="control-bar" id="filterRow">
-    <div class="control-group" id="employeeFilterGroup" style="position:relative;">
+    <div class="control-group" id="employeeFilterGroup" style="position:relative;display:none;">
       <label for="employeeFilterToggle">Employee</label>
       <button class="dropdown-toggle" id="employeeFilterToggle" type="button" disabled>
         <span id="employeeFilterLabel">All employees</span>
@@ -1172,8 +1250,8 @@ if ('serviceWorker' in navigator) {
         <canvas id="statusChart" role="img" aria-label="Horizontal bar chart of task counts by status"></canvas>
       </div>
     </div>
-    <div class="panel">
-      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+    <div class="panel" id="entitiesTablePanel">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;" id="entitiesTableControlsRow">
         <div>
           <h2>Top entities by effort</h2>
           <p class="p-sub" id="tableSub" style="margin-bottom:0;">Highest-effort module / feature entries</p>
@@ -1186,7 +1264,7 @@ if ('serviceWorker' in navigator) {
           </button>
         </div>
       </div>
-      <div style="max-height:230px;overflow:auto;margin-top:10px;">
+      <div style="max-height:230px;overflow:auto;margin-top:10px;" id="entitiesTableScrollWrap">
         <table id="entitiesTable" class="col-managed-table">
           <colgroup>
             <col data-col="project"><col data-col="module"><col data-col="min">
@@ -1208,13 +1286,13 @@ if ('serviceWorker' in navigator) {
     <div id="recentLog"></div>
   </div>
 
-  <div class="panel" style="margin-top:16px;">
+  <div class="panel" style="margin-top:16px;" id="ticketRollupPanel">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
       <div>
         <h2>Ticket effort rollup</h2>
         <p class="p-sub" id="ticketRollupSub" style="margin-bottom:0;">Every ticket's total time, span, and current status — click a header to sort</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;" id="ticketRollupControlsRow">
         <div class="control-group">
           <label for="staleOnlyToggle">&nbsp;</label>
           <label style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono', monospace;font-size:11.5px;color:var(--text-mute);cursor:pointer;">
@@ -1231,7 +1309,7 @@ if ('serviceWorker' in navigator) {
         </div>
       </div>
     </div>
-    <div style="max-height:340px;overflow:auto;margin-top:10px;">
+    <div style="max-height:340px;overflow:auto;margin-top:10px;" id="ticketRollupScrollWrap">
       <table id="ticketRollupTable" class="col-managed-table">
         <colgroup>
           <col data-col="ticket"><col data-col="system"><col data-col="minutes"><col data-col="count">
@@ -1253,13 +1331,13 @@ if ('serviceWorker' in navigator) {
     </div>
   </div>
 
-  <div class="panel" style="margin-top:16px;">
+  <div class="panel" style="margin-top:16px;" id="rawTablePanel">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
       <div>
         <h2>Full log entries</h2>
         <p class="p-sub" id="rawTableSub" style="margin-bottom:0;">Every filtered row, every column — click a header to sort</p>
       </div>
-      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;" id="rawTableControlsRow">
         <div class="control-group" id="columnsToggleGroup" style="position:relative;">
           <label for="columnsToggle">Columns</label>
           <button class="dropdown-toggle" id="columnsToggle" type="button" disabled>
@@ -1278,7 +1356,7 @@ if ('serviceWorker' in navigator) {
         <button class="btn" id="rawTableExportBtn" type="button" disabled>Export this table (CSV)</button>
       </div>
     </div>
-    <div style="max-height:420px;overflow:auto;margin-top:10px;">
+    <div style="max-height:420px;overflow:auto;margin-top:10px;" id="rawTableScrollWrap">
       <table id="rawTable" class="col-managed-table">
         <colgroup>
           <col data-col="date"><col data-col="employee"><col data-col="project"><col data-col="module">
@@ -1742,7 +1820,15 @@ function addSearchKeyword(raw){
   clearSavedFilterSelection();
   renderAll();
 }
-function getSearchKeywords(){ return searchKeywords.slice(); }
+function getSearchKeywords(){
+  // Committed chips (Enter/comma/blur) are OR-matched together. We also fold in
+  // whatever's currently typed but not yet committed, so a bare "1510" filters
+  // immediately without requiring Enter first.
+  const combined = searchKeywords.slice();
+  const live = searchInputEl.value.trim();
+  if(live && !combined.some(k=>k.toLowerCase()===live.toLowerCase())) combined.push(live);
+  return combined;
+}
 function setSearchKeywords(arr){
   searchKeywords = Array.isArray(arr) ? arr.slice() : (arr ? String(arr).split(',').map(s=>s.trim()).filter(Boolean) : []);
   renderSearchChips();
@@ -1762,6 +1848,12 @@ searchInputEl.addEventListener('keydown', (e)=>{
 searchInputEl.addEventListener('blur', ()=>{
   if(searchInputEl.value.trim()) addSearchKeyword(searchInputEl.value);
 });
+searchInputEl.addEventListener('input', ()=>{
+  // Live filter as the user types (e.g. typing a ticket number like "1510"
+  // with no Enter press should still narrow the tables immediately).
+  clearSavedFilterSelection();
+  renderAll();
+});
 
 function populateFacetFilters(data){
   employeeMS.setOptions(Array.from(new Set(data.map(d=>d.employee))).filter(Boolean).sort());
@@ -1778,7 +1870,12 @@ function getFiltered(){
     if(projSel.length && !projSel.includes(d.project)) return false;
     if(natSel.length && !natSel.includes(d.nature)) return false;
     if(keywords.length){
-      const hay = ((d.desc||'') + ' ' + (d.remarks||'')).toLowerCase();
+      // Search visible display text as well as identifiers that aren't always shown
+      // (raw ticket id, formatted ticket display, and the ticket's source system).
+      const hay = (
+        (d.desc||'') + ' ' + (d.remarks||'') + ' ' +
+        (d.ticket||'') + ' ' + (d.ticketDisplay||'') + ' ' + (d.ticketSystem||'')
+      ).toLowerCase();
       if(!keywords.some(k => hay.includes(k))) return false;
     }
     return true;
@@ -1791,7 +1888,8 @@ function activeFacetFilters(){
   if(empSel.length) parts.push({label:'Employee', value: empSel.join(', ')});
   if(projSel.length) parts.push({label:'Project', value: projSel.join(', ')});
   if(natSel.length) parts.push({label:'Nature', value: natSel.join(', ')});
-  if(searchKeywords.length) parts.push({label:'Search', value: searchKeywords.join(', ')});
+  const activeKeywords = getSearchKeywords();
+  if(activeKeywords.length) parts.push({label:'Search', value: activeKeywords.join(', ')});
   return parts;
 }
 function filterSummaryText(){
@@ -2144,6 +2242,7 @@ function renderModuleTable(data){
   });
   entitiesTableMgr.reorderDom();
   entitiesTableMgr.applyPins();
+  entitiesTableMgr.applyVisibility();
   const summary = filterSummaryText();
   sub.textContent = (summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol) + ' — double-click a row for its history';
 
@@ -2278,6 +2377,7 @@ function renderTicketRollup(data){
   });
   ticketRollupMgr.reorderDom();
   ticketRollupMgr.applyPins();
+  ticketRollupMgr.applyVisibility();
   document.getElementById('ticketRollupSub').textContent =
     (rows.length ? shown.length + ' of ' + rows.length + ' tickets' + (staleOnly ? ' (stale filter on)' : '') : 'No ticket references in the current filters') + ' — click a header to sort, double-click a row for its history';
   document.querySelectorAll('#ticketRollupTable .sort-arrow').forEach(el=>{
@@ -2318,6 +2418,7 @@ function openHistoryModal(title, subtitle, entries){
   });
   ticketHistoryMgr.reorderDom();
   ticketHistoryMgr.applyPins();
+  ticketHistoryMgr.applyVisibility();
   ticketHistoryModalEl.style.display = 'flex';
 }
 function openTicketHistoryModal(rollupRow){
@@ -2328,7 +2429,10 @@ function openTicketHistoryModal(rollupRow){
     (rollupRow.stale ? ' · STALE (open ' + rollupRow.daysOpen + ' days)' : '');
   openHistoryModal(rollupRow.ticket, subtitle, entries);
 }
-function closeTicketHistoryModal(){ ticketHistoryModalEl.style.display = 'none'; }
+function closeTicketHistoryModal(){
+  if(tfsActiveEntry && tfsActiveEntry === ticketHistoryFS) closeTableFullscreen();
+  ticketHistoryModalEl.style.display = 'none';
+}
 document.getElementById('ticketHistoryCloseBtn').addEventListener('click', closeTicketHistoryModal);
 ticketHistoryModalEl.addEventListener('click', (e)=>{ if(e.target === ticketHistoryModalEl) closeTicketHistoryModal(); });
 
@@ -2380,6 +2484,7 @@ function renderRawTable(data, summary){
   });
   rawTableMgr.reorderDom();
   rawTableMgr.applyPins();
+  rawTableMgr.applyVisibility();
 
   document.getElementById('rawTableSub').textContent = (summary ? sorted.length + ' rows match: ' + summary : sorted.length + ' rows (no facet filters applied)') + ' — click a header to sort';
   document.getElementById('rawTablePageInfo').textContent = sorted.length
@@ -2455,8 +2560,17 @@ function createColumnManager(opts){
   }
   function applyVisibility(){
     keys.forEach(k=>{
+      const isHidden = hidden.has(k);
       const col = table.querySelector(':scope colgroup col[data-col="'+k+'"]');
-      if(col) col.style.display = hidden.has(k) ? 'none' : '';
+      if(col) col.style.display = isHidden ? 'none' : '';
+      // Hiding only the <col> isn't reliable in every browser once cells use
+      // position:sticky (our header row, plus pinned columns) inside a
+      // table-layout:fixed table — the column can keep rendering even though
+      // the <col> is display:none. Hide the actual header/body cells too, and
+      // re-run this after every re-render so freshly-created rows stay hidden.
+      table.querySelectorAll('th[data-col="'+k+'"], td[data-col="'+k+'"]').forEach(cell=>{
+        cell.style.display = isHidden ? 'none' : '';
+      });
     });
   }
   function reorderDom(){
@@ -2785,6 +2899,154 @@ const ticketHistoryMgr = createColumnManager({
   hiddenKey: 'effortManifestDashboard.ticketHistoryTable.hiddenCols.v1',
   pinnedKey: 'effortManifestDashboard.ticketHistoryTable.pinnedDir.v1',
   orderKey: 'effortManifestDashboard.ticketHistoryTable.colOrder.v1'
+});
+
+// =====================================================================
+// Full Screen Table (generic, reusable across every dashboard table)
+// ---------------------------------------------------------------------
+// Rather than duplicating any table's markup or re-implementing its
+// rendering/sorting/pagination/etc, this feature temporarily RELOCATES a
+// table's existing panel (its whole header + table + footer block, as-is)
+// into one shared, always-in-the-DOM, position:fixed overlay — then moves
+// it straight back to its original spot when closed. Because the exact
+// same DOM nodes are reused (same ids, same event listeners already
+// attached to them by createColumnManager, the sort handlers, pagination
+// buttons, export buttons, etc.), every existing behavior keeps working
+// with zero duplicated code and zero risk of the two copies drifting out
+// of sync.
+//
+// This intentionally does NOT rely on the browser's native Fullscreen API
+// (Element.requestFullscreen/document.exitFullscreen). That API is
+// unsupported for arbitrary elements on iOS Safari (iPhone/iPad), and can
+// be blocked entirely inside iframes or by browser policy elsewhere. A
+// fixed-position overlay (position:fixed; inset:0) has no such
+// restriction and renders identically on Chrome, Edge, Firefox, and
+// Safari, on both desktop and mobile.
+//
+// HOW TO ADD FULL SCREEN TO ANY CURRENT OR FUTURE TABLE:
+//   registerTableFullscreen({
+//     panelEl:      <the table's outer .panel or .modal-box element>,
+//     scrollWrapEl: <the div that scrolls the table, usually a fixed
+//                    max-height wrapper — its max-height is temporarily
+//                    let go so the table can fill the screen>,
+//     buttonHostEl: <an element already in that panel's header/controls
+//                    row to drop the toggle button into>,
+//     title:        <string shown in the overlay's title bar>
+//   });
+// That's the entire integration surface — no other changes needed.
+// =====================================================================
+
+const tfsOverlayEl = document.getElementById('tableFullscreenOverlay');
+const tfsBodyEl = document.getElementById('tableFullscreenBody');
+const tfsTitleEl = document.getElementById('tableFullscreenTitle');
+const tfsCloseBtn = document.getElementById('tableFullscreenCloseBtn');
+const TFS_EXPAND_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3H5a2 2 0 0 0-2 2v3"/><path d="M16 3h3a2 2 0 0 1 2 2v3"/><path d="M8 21H5a2 2 0 0 1-2-2v-3"/><path d="M16 21h3a2 2 0 0 0 2-2v-3"/></svg>';
+const TFS_COMPRESS_SVG = '<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 3v4a2 2 0 0 1-2 2H3"/><path d="M15 3v4a2 2 0 0 0 2 2h4"/><path d="M9 21v-4a2 2 0 0 0-2-2H3"/><path d="M15 21v-4a2 2 0 0 1 2-2h4"/></svg>';
+
+let tfsActiveEntry = null; // the one table currently full-screen, or null
+
+function registerTableFullscreen(opts){
+  const entry = {
+    panelEl: opts.panelEl,
+    scrollWrapEl: opts.scrollWrapEl || null,
+    title: opts.title || 'Table',
+    // a comment node marks exactly where panelEl came from, so closing
+    // full screen can put it back in precisely the right place even if
+    // sibling elements were re-rendered while it was away
+    placeholder: document.createComment('tfs-placeholder: ' + (opts.title || ''))
+  };
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'tfs-toggle-btn';
+  btn.title = 'Full screen';
+  btn.setAttribute('aria-label', 'Toggle full screen for ' + entry.title);
+  btn.innerHTML = TFS_EXPAND_SVG;
+  btn.addEventListener('click', ()=>{
+    if(tfsActiveEntry === entry) closeTableFullscreen();
+    else openTableFullscreen(entry);
+  });
+  entry.btn = btn;
+  if(opts.buttonHostEl) opts.buttonHostEl.appendChild(btn);
+  return entry;
+}
+
+function openTableFullscreen(entry){
+  if(!entry || !entry.panelEl) return;
+  if(tfsActiveEntry && tfsActiveEntry !== entry) closeTableFullscreen();
+
+  entry.panelEl.parentNode.insertBefore(entry.placeholder, entry.panelEl);
+  tfsBodyEl.appendChild(entry.panelEl);
+  entry.panelEl.classList.add('tfs-active-panel');
+  if(entry.scrollWrapEl){
+    entry.originalMaxHeight = entry.scrollWrapEl.style.maxHeight;
+    entry.scrollWrapEl.classList.add('tfs-scrollfill');
+  }
+
+  tfsTitleEl.textContent = entry.title;
+  tfsOverlayEl.style.display = 'flex';
+  entry.btn.classList.add('tfs-toggle-active');
+  entry.btn.title = 'Exit full screen';
+  entry.btn.innerHTML = TFS_COMPRESS_SVG;
+  document.body.style.overflow = 'hidden'; // prevent the page behind the overlay from scrolling
+  tfsActiveEntry = entry;
+  tfsCloseBtn.focus();
+}
+
+function closeTableFullscreen(){
+  const entry = tfsActiveEntry;
+  if(!entry) return;
+
+  entry.placeholder.parentNode.insertBefore(entry.panelEl, entry.placeholder);
+  entry.placeholder.remove();
+  entry.panelEl.classList.remove('tfs-active-panel');
+  if(entry.scrollWrapEl){
+    entry.scrollWrapEl.classList.remove('tfs-scrollfill');
+    entry.scrollWrapEl.style.maxHeight = entry.originalMaxHeight || '';
+  }
+
+  entry.btn.classList.remove('tfs-toggle-active');
+  entry.btn.title = 'Full screen';
+  entry.btn.innerHTML = TFS_EXPAND_SVG;
+  tfsOverlayEl.style.display = 'none';
+  document.body.style.overflow = '';
+  tfsActiveEntry = null;
+  entry.btn.focus();
+}
+
+// Exit via: close button, clicking the dimmed backdrop, or Esc.
+tfsCloseBtn.addEventListener('click', closeTableFullscreen);
+tfsOverlayEl.addEventListener('click', (e)=>{ if(e.target === tfsOverlayEl) closeTableFullscreen(); });
+document.addEventListener('keydown', (e)=>{
+  if(e.key === 'Escape' && tfsActiveEntry) closeTableFullscreen();
+});
+
+// ---- register full screen on every current dashboard table ----
+const rawTableFS = registerTableFullscreen({
+  panelEl: document.getElementById('rawTablePanel'),
+  scrollWrapEl: document.getElementById('rawTableScrollWrap'),
+  buttonHostEl: document.getElementById('rawTableControlsRow'),
+  title: 'Full log entries'
+});
+const entitiesTableFS = registerTableFullscreen({
+  panelEl: document.getElementById('entitiesTablePanel'),
+  scrollWrapEl: document.getElementById('entitiesTableScrollWrap'),
+  buttonHostEl: document.getElementById('entitiesTableControlsRow'),
+  title: 'Top entities by effort'
+});
+const ticketRollupFS = registerTableFullscreen({
+  panelEl: document.getElementById('ticketRollupPanel'),
+  scrollWrapEl: document.getElementById('ticketRollupScrollWrap'),
+  buttonHostEl: document.getElementById('ticketRollupControlsRow'),
+  title: 'Ticket effort rollup'
+});
+// This one already lives inside its own drill-down modal (ticketHistoryModal). The exact
+// same registration works unmodified — full screen just relocates the modal-box itself
+// into the shared overlay instead of a plain .panel, proving the API is truly generic.
+const ticketHistoryFS = registerTableFullscreen({
+  panelEl: document.getElementById('ticketHistoryPanel'),
+  scrollWrapEl: document.getElementById('ticketHistoryScrollWrap'),
+  buttonHostEl: document.getElementById('ticketHistoryControlsRow'),
+  title: 'Ticket history'
 });
 
 document.querySelectorAll('#rawTable th.sortable').forEach(th=>{
