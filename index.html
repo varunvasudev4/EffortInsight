@@ -2,7 +2,8 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Effort Manifest</title>
+<title>Effort Insight</title>
+<link rel="icon" type="image/svg+xml" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%2312151c'/%3E%3Crect x='13' y='34' width='10' height='18' rx='2' fill='%233fab8f'/%3E%3Crect x='27' y='22' width='10' height='30' rx='2' fill='%23e8622c'/%3E%3Crect x='41' y='12' width='10' height='40' rx='2' fill='%23d1b954'/%3E%3C/svg%3E">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@500;600;700&family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet">
@@ -10,6 +11,15 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script>
+if ('serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    navigator.serviceWorker.register('./sw.js')
+      .then(reg => console.log('SW registered', reg))
+      .catch(err => console.error(err));
+  });
+}
+</script>
 <style>
   :root{
     --bg:#12151c;
@@ -37,7 +47,21 @@
     font-family:'IBM Plex Sans', sans-serif;
     padding:32px 24px 64px;
   }
-  .wrap{max-width:1180px;margin:0 auto;}
+  .wrap{max-width:1600px;width:100%;margin:0 auto;}
+
+  /* ---------- scrollbars (match dark navy/cargo-orange theme) ---------- */
+  html{scrollbar-width:thin;scrollbar-color:var(--border) var(--panel);}
+  *{scrollbar-width:thin;scrollbar-color:var(--border) var(--panel);}
+  ::-webkit-scrollbar{width:11px;height:11px;}
+  ::-webkit-scrollbar-track{background:var(--panel);}
+  ::-webkit-scrollbar-corner{background:var(--panel);}
+  ::-webkit-scrollbar-thumb{
+    background:var(--border);
+    border-radius:20px;
+    border:2px solid var(--panel);
+    background-clip:padding-box;
+  }
+  ::-webkit-scrollbar-thumb:hover{background:var(--orange);border-color:var(--panel);background-clip:padding-box;}
 
   /* ---------- header ---------- */
   .header{
@@ -239,6 +263,10 @@
     letter-spacing:.05em;
   }
 
+  @media (min-width:1400px){
+    body{padding:32px 40px 64px;}
+  }
+
   @media (max-width:820px){
     .kpi-row{grid-template-columns:repeat(2,1fr);}
     .grid-2{grid-template-columns:1fr;}
@@ -366,7 +394,8 @@
   }
   .dropdown-toggle:hover{border-color:var(--text-dim);}
   .dropdown-toggle.open{border-color:var(--orange);}
-  .dropdown-caret{color:var(--text-dim);font-size:10px;}
+  .dropdown-caret{color:var(--text);font-size:13px;line-height:1;display:inline-block;transition:transform .15s ease, color .15s ease;}
+  .dropdown-toggle.open .dropdown-caret{color:var(--orange);transform:rotate(180deg);}
   .dropdown-menu{
     position:absolute;
     top:100%;
@@ -504,9 +533,9 @@
 
   th.sortable{cursor:pointer;user-select:none;}
   th.sortable:hover{color:var(--text);}
-  #rawTable{table-layout:fixed;border-collapse:collapse;}
-  #rawTable th{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:14px;}
-  #rawTable td{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0;}
+  .col-managed-table{table-layout:fixed;border-collapse:separate;border-spacing:0;width:100%;}
+  .col-managed-table th{position:relative;overflow:hidden;white-space:nowrap;text-overflow:ellipsis;padding-right:28px;}
+  .col-managed-table td{overflow:hidden;white-space:nowrap;text-overflow:ellipsis;max-width:0;}
   .col-resize-handle{
     position:absolute;top:0;right:0;width:8px;height:100%;cursor:col-resize;user-select:none;z-index:2;
     touch-action:none;
@@ -515,6 +544,83 @@
     content:'';position:absolute;top:2px;bottom:2px;right:3px;width:2px;background:var(--border);
   }
   .col-resize-handle:hover::after, .col-resize-handle.active::after{background:var(--orange);}
+  .col-pin-icon{
+    position:absolute;top:50%;right:12px;transform:translateY(-50%);
+    background:none;border:none;color:var(--text-dim);cursor:pointer;
+    display:flex;align-items:center;justify-content:center;
+    line-height:1;padding:2px;z-index:2;opacity:.6;
+  }
+  .col-pin-icon:hover{color:var(--text);opacity:1;}
+  .col-pin-icon.pin-left{color:var(--orange);opacity:1;}
+  .col-pin-icon.pin-right{color:var(--teal);opacity:1;}
+  .col-managed-table thead th{position:sticky;top:0;z-index:5;background:var(--panel);}
+  .pinned-col{position:sticky !important;z-index:2;background:var(--panel);}
+  .col-managed-table thead th.pinned-col{z-index:8;}
+  .pinned-col-edge-left{box-shadow:2px 0 0 var(--border);}
+  .pinned-col-edge-right{box-shadow:-2px 0 0 var(--border);}
+  .col-manager-row{
+    display:flex;align-items:center;gap:10px;
+    padding:9px 10px;border:1px solid var(--border);border-radius:8px;
+    background:var(--bg);touch-action:none;
+  }
+  .col-manager-row.dragging{opacity:.35;}
+  .col-manager-row.drag-over-top{box-shadow:inset 0 2px 0 var(--orange);}
+  .col-manager-row.drag-over-bottom{box-shadow:inset 0 -2px 0 var(--orange);}
+  .col-drag-handle{color:var(--text-dim);cursor:grab;display:flex;align-items:center;flex-shrink:0;}
+  .col-drag-handle:hover{color:var(--text);}
+  .col-drag-handle:active{cursor:grabbing;}
+  .col-manager-row .dropdown-item-label{flex:1;font-family:'IBM Plex Mono', monospace;font-size:12px;color:var(--text);overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .col-manager-row input[type="checkbox"]{accent-color:var(--orange);width:14px;height:14px;flex-shrink:0;cursor:pointer;}
+  .col-pin-icon-menu{position:static;transform:none;opacity:.7;flex-shrink:0;}
+  .col-pin-icon-menu:hover{opacity:1;}
+
+  /* ---------- custom tooltip (replaces native browser title tooltips) ---------- */
+  /* Styled like the app's other floating surfaces (dropdown-menu / panel): panel bg, subtle border, soft shadow. */
+  #appTooltip{
+    position:fixed;
+    z-index:10050;
+    max-width:340px;
+    background:var(--panel);
+    color:var(--text);
+    border:1px solid rgba(232,98,44,0.55);
+    border-radius:8px;
+    padding:7px 10px;
+    font-family:'IBM Plex Mono', monospace;
+    font-size:11.5px;
+    line-height:1.4;
+    white-space:pre-line;
+    word-break:break-word;
+    box-shadow:0 10px 30px rgba(0,0,0,0.45), 0 0 0 1px rgba(232,98,44,0.12);
+    pointer-events:none;
+    opacity:0;
+    transform:translateY(4px);
+    transition:opacity .12s ease, transform .12s ease;
+  }
+  #appTooltip.visible{opacity:1;transform:translateY(0);}
+  #appTooltip::after{
+    content:'';
+    position:absolute;
+    left:14px;
+    width:8px;height:8px;
+    background:var(--panel);
+    border:1px solid rgba(232,98,44,0.55);
+    border-top:none;border-left:none;
+    transform:rotate(45deg);
+  }
+  #appTooltip.tip-below::after{top:-5px;transform:rotate(225deg);}
+  #appTooltip.tip-above::after{bottom:-5px;transform:rotate(45deg);}
+  .stale-flag{
+    display:inline-block;margin-left:6px;padding:1px 6px;border-radius:3px;
+    font-size:10px;font-family:'IBM Plex Mono', monospace;background:var(--orange-soft);color:var(--orange);border:1px solid var(--orange);
+  }
+  .snapshot-row{display:flex;gap:18px;flex-wrap:wrap;margin-top:12px;}
+  .snapshot-col{flex:1;min-width:180px;}
+  .snapshot-col h3{margin:0 0 8px;font-size:12px;color:var(--text-mute);text-transform:uppercase;letter-spacing:.04em;font-weight:600;}
+  .snapshot-bar-row{display:flex;align-items:center;gap:8px;margin-bottom:6px;font-size:11.5px;font-family:'IBM Plex Mono', monospace;}
+  .snapshot-bar-label{width:96px;flex-shrink:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text);}
+  .snapshot-bar-track{flex:1;height:8px;background:var(--bg);border-radius:4px;overflow:hidden;}
+  .snapshot-bar-fill{height:100%;border-radius:4px;background:var(--orange);}
+  .snapshot-bar-val{width:52px;flex-shrink:0;text-align:right;color:var(--text-mute);}
   .sort-arrow{font-size:9px;color:var(--orange);}
 
   .fc-apply{
@@ -585,6 +691,9 @@
     overflow-y:auto;
     box-shadow:0 12px 40px rgba(0,0,0,0.45);
   }
+  .modal-box-wide{max-width:1500px;width:95vw;}
+  /* the columns-manager popup can be opened from inside another modal (e.g. ticket history), so it must stack above it */
+  #columnsManagerModal{z-index:10010;}
   .modal-box h3{
     font-family:'Space Grotesk', sans-serif;
     font-size:18px;
@@ -639,6 +748,7 @@
 </style>
 </head>
 <body>
+<div id="appTooltip" role="tooltip"></div>
 <div class="loading-overlay" id="loadingOverlay" style="display:none;">
   <div class="spinner"></div>
   <div class="loading-text" id="loadingText">Processing files…</div>
@@ -681,12 +791,67 @@
   </div>
 </div>
 
+<div class="modal-overlay" id="columnsManagerModal" style="display:none;">
+  <div class="modal-box" style="max-width:420px;">
+    <p class="eyebrow" style="margin-bottom:6px;">Table columns</p>
+    <h3 id="columnsManagerTitle">Manage columns</h3>
+    <p class="modal-sub">Drag <span class="col-drag-handle" style="display:inline-flex;vertical-align:middle;"><svg width="12" height="12" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg></span> to reorder, check to show/hide, and click the pin icon to freeze a column left or right while scrolling.</p>
+    <div id="columnsManagerList" style="display:flex;flex-direction:column;gap:6px;max-height:360px;overflow-y:auto;margin:14px 0 4px;"></div>
+    <div class="modal-actions">
+      <button class="btn btn-upload" id="columnsManagerCloseBtn" type="button">Done</button>
+    </div>
+  </div>
+</div>
+
+<div class="modal-overlay" id="ticketHistoryModal" style="display:none;">
+  <div class="modal-box modal-box-wide">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
+        <p class="eyebrow" style="margin-bottom:6px;">Ticket history</p>
+        <h3 id="ticketHistoryTitle">Ticket</h3>
+        <p class="modal-sub" id="ticketHistorySub"></p>
+      </div>
+      <div class="control-group" id="historyColumnsToggleGroup" style="position:relative;">
+        <label for="historyColumnsToggle">Columns</label>
+        <button class="dropdown-toggle" id="historyColumnsToggle" type="button" disabled>
+          <span id="historyColumnsToggleLabel">Columns</span>
+          <span class="dropdown-caret">▾</span>
+        </button>
+      </div>
+    </div>
+    <div style="max-height:52vh;overflow:auto;margin:14px 0 4px;">
+      <table id="ticketHistoryTable" class="col-managed-table">
+        <colgroup>
+          <col data-col="date"><col data-col="employee"><col data-col="project"><col data-col="module">
+          <col data-col="nature"><col data-col="ticket"><col data-col="effort"><col data-col="status"><col data-col="desc"><col data-col="remarks">
+        </colgroup>
+        <thead><tr>
+          <th data-col="date">Date<button type="button" class="col-pin-icon" data-col="date" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="employee">Employee<button type="button" class="col-pin-icon" data-col="employee" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="project">Project<button type="button" class="col-pin-icon" data-col="project" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="module">Module<button type="button" class="col-pin-icon" data-col="module" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="nature">Nature<button type="button" class="col-pin-icon" data-col="nature" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="ticket">Ticket<button type="button" class="col-pin-icon" data-col="ticket" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="effort" style="text-align:right;">Min<button type="button" class="col-pin-icon" data-col="effort" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="status">Status<button type="button" class="col-pin-icon" data-col="status" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="desc">Description<button type="button" class="col-pin-icon" data-col="desc" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="remarks">Remarks<button type="button" class="col-pin-icon" data-col="remarks" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+        </tr></thead>
+        <tbody id="ticketHistoryBody"></tbody>
+      </table>
+    </div>
+    <div class="modal-actions">
+      <button class="btn btn-upload" id="ticketHistoryCloseBtn" type="button">Close</button>
+    </div>
+  </div>
+</div>
+
 <div class="wrap">
 
   <div class="header">
     <div>
       <p class="eyebrow">Effort manifest</p>
-      <h1>Engineering effort dashboard</h1>
+      <h1>Effort Insight</h1>
       <p class="sub" id="headerSub">Upload a CSV or Excel file above to populate this dashboard</p>
     </div>
     <div class="manifest-id">
@@ -702,6 +867,19 @@
         <label class="btn btn-highlight" for="csvFileInput">Upload CSV / Excel</label>
         <input type="file" id="csvFileInput" accept=".csv,text/csv,.xlsx,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet,application/vnd.ms-excel" multiple>
         <button class="btn" id="filesButton" type="button" disabled>Uploaded files (0)</button>
+      </div>
+    </div>
+    <div class="control-group">
+      <label>&nbsp;</label>
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
+        <a class="btn btn-highlight" href="tasklogger.html" style="text-decoration:none;display:inline-flex;align-items:center;gap:6px;">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 3"/></svg>
+          Open Task Time Logger
+        </a>
+        <button class="btn" id="refreshFromLoggerBtn" type="button" title="Re-pull the latest entries from Task Time Logger's browser storage">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:4px;"><path d="M21 12a9 9 0 1 1-3-6.7"/><path d="M21 4v5h-5"/></svg>
+          Refresh from Logger
+        </button>
       </div>
     </div>
     <div class="control-group">
@@ -736,7 +914,7 @@
 
 
   <div class="control-bar" id="filterRow">
-    <div class="control-group" id="employeeFilterGroup" style="position:relative;">
+    <div class="control-group" id="employeeFilterGroup" style="position:relative;display:none;">
       <label for="employeeFilterToggle">Employee</label>
       <button class="dropdown-toggle" id="employeeFilterToggle" type="button" disabled>
         <span id="employeeFilterLabel">All employees</span>
@@ -778,7 +956,7 @@
     <div class="control-group" id="savedFiltersGroup" style="position:relative;">
       <label for="savedFiltersToggle">Saved filters</label>
       <button class="dropdown-toggle" id="savedFiltersToggle" type="button" disabled>
-        <span id="savedFiltersToggleLabel">— Select a saved filter —</span>
+        <span id="savedFiltersToggleLabel">Saved Filters</span>
         <span class="dropdown-caret">▾</span>
       </button>
       <div class="dropdown-menu" id="savedFiltersMenu" style="display:none;"></div>
@@ -818,11 +996,35 @@
       <div class="t-val" id="kpiDays">—<span class="t-unit">days</span></div>
       <div class="t-foot" id="kpiDaysFoot">— avg hrs / day worked</div>
     </div>
-    <div class="ticket">
+    <div class="ticket" id="kpiTicketsCard" style="cursor:pointer;" title="Double-click to see every ticketed entry, by date">
       <div class="t-label">Support tickets</div>
       <div class="stub-line"></div>
       <div class="t-val" id="kpiTickets">—</div>
-      <div class="t-foot">Entries with a ticket reference</div>
+      <div class="t-foot">Entries with a ticket reference · double-click for details</div>
+    </div>
+  </div>
+
+  <div class="panel" id="employeeSnapshotPanel" style="display:none;margin-bottom:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
+        <h2 id="snapshotHeading">Personal snapshot</h2>
+        <p class="p-sub" id="snapshotSub" style="margin-bottom:0;">Scoped to the selected employee and current filters</p>
+      </div>
+    </div>
+    <div class="snapshot-row" id="snapshotStats"></div>
+    <div class="snapshot-row">
+      <div class="snapshot-col">
+        <h3>Top projects (hrs)</h3>
+        <div id="snapshotProjects"></div>
+      </div>
+      <div class="snapshot-col">
+        <h3>Top task nature (hrs)</h3>
+        <div id="snapshotNature"></div>
+      </div>
+      <div class="snapshot-col">
+        <h3>Status mix (tasks)</h3>
+        <div id="snapshotStatus"></div>
+      </div>
     </div>
   </div>
 
@@ -971,14 +1173,28 @@
       </div>
     </div>
     <div class="panel">
-      <h2>Top entities by effort</h2>
-      <p class="p-sub" id="tableSub">Highest-effort module / feature entries</p>
-      <div style="max-height:230px;overflow-y:auto;overflow-x:auto;">
-        <table id="entitiesTable" style="min-width:360px;">
+      <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+        <div>
+          <h2>Top entities by effort</h2>
+          <p class="p-sub" id="tableSub" style="margin-bottom:0;">Highest-effort module / feature entries</p>
+        </div>
+        <div class="control-group" id="entitiesColumnsToggleGroup" style="position:relative;">
+          <label for="entitiesColumnsToggle">Columns</label>
+          <button class="dropdown-toggle" id="entitiesColumnsToggle" type="button" disabled>
+            <span id="entitiesColumnsToggleLabel">Columns</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+        </div>
+      </div>
+      <div style="max-height:230px;overflow:auto;margin-top:10px;">
+        <table id="entitiesTable" class="col-managed-table">
+          <colgroup>
+            <col data-col="project"><col data-col="module"><col data-col="min">
+          </colgroup>
           <thead><tr>
-            <th class="sortable" data-col="project">Project <span class="sort-arrow" data-arrow="project"></span></th>
-            <th class="sortable" data-col="module">Module <span class="sort-arrow" data-arrow="module"></span></th>
-            <th class="sortable" data-col="min" style="text-align:right;">Min <span class="sort-arrow" data-arrow="min"></span></th>
+            <th class="sortable" data-col="project">Project <span class="sort-arrow" data-arrow="project"></span><button type="button" class="col-pin-icon" data-col="project" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+            <th class="sortable" data-col="module">Module <span class="sort-arrow" data-arrow="module"></span><button type="button" class="col-pin-icon" data-col="module" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+            <th class="sortable" data-col="min" style="text-align:right;">Min <span class="sort-arrow" data-arrow="min"></span><button type="button" class="col-pin-icon" data-col="min" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
           </tr></thead>
           <tbody id="moduleTableBody"></tbody>
         </table>
@@ -995,10 +1211,62 @@
   <div class="panel" style="margin-top:16px;">
     <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
       <div>
+        <h2>Ticket effort rollup</h2>
+        <p class="p-sub" id="ticketRollupSub" style="margin-bottom:0;">Every ticket's total time, span, and current status — click a header to sort</p>
+      </div>
+      <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="control-group">
+          <label for="staleOnlyToggle">&nbsp;</label>
+          <label style="display:flex;align-items:center;gap:6px;font-family:'IBM Plex Mono', monospace;font-size:11.5px;color:var(--text-mute);cursor:pointer;">
+            <input type="checkbox" id="staleOnlyToggle" disabled style="accent-color:var(--orange);width:14px;height:14px;">
+            Stale only (open ≥7 days, not completed)
+          </label>
+        </div>
+        <div class="control-group" id="rollupColumnsToggleGroup" style="position:relative;">
+          <label for="rollupColumnsToggle">Columns</label>
+          <button class="dropdown-toggle" id="rollupColumnsToggle" type="button" disabled>
+            <span id="rollupColumnsToggleLabel">Columns</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+        </div>
+      </div>
+    </div>
+    <div style="max-height:340px;overflow:auto;margin-top:10px;">
+      <table id="ticketRollupTable" class="col-managed-table">
+        <colgroup>
+          <col data-col="ticket"><col data-col="system"><col data-col="minutes"><col data-col="count">
+          <col data-col="employees"><col data-col="first"><col data-col="last"><col data-col="daysOpen"><col data-col="status">
+        </colgroup>
+        <thead><tr>
+          <th class="sortable" data-tcol="ticket" data-col="ticket">Ticket <span class="sort-arrow" data-tarrow="ticket"></span><button type="button" class="col-pin-icon" data-col="ticket" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="system" data-col="system">System <span class="sort-arrow" data-tarrow="system"></span><button type="button" class="col-pin-icon" data-col="system" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="minutes" data-col="minutes" style="text-align:right;">Hours <span class="sort-arrow" data-tarrow="minutes"></span><button type="button" class="col-pin-icon" data-col="minutes" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="count" data-col="count" style="text-align:right;">Entries <span class="sort-arrow" data-tarrow="count"></span><button type="button" class="col-pin-icon" data-col="count" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="employees" data-col="employees">Employees <span class="sort-arrow" data-tarrow="employees"></span><button type="button" class="col-pin-icon" data-col="employees" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="first" data-col="first">First logged <span class="sort-arrow" data-tarrow="first"></span><button type="button" class="col-pin-icon" data-col="first" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="last" data-col="last">Last logged <span class="sort-arrow" data-tarrow="last"></span><button type="button" class="col-pin-icon" data-col="last" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="daysOpen" data-col="daysOpen" style="text-align:right;">Days open <span class="sort-arrow" data-tarrow="daysOpen"></span><button type="button" class="col-pin-icon" data-col="daysOpen" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-tcol="status" data-col="status">Latest status <span class="sort-arrow" data-tarrow="status"></span><button type="button" class="col-pin-icon" data-col="status" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+        </tr></thead>
+        <tbody id="ticketRollupBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top:16px;">
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;flex-wrap:wrap;gap:10px;">
+      <div>
         <h2>Full log entries</h2>
         <p class="p-sub" id="rawTableSub" style="margin-bottom:0;">Every filtered row, every column — click a header to sort</p>
       </div>
       <div style="display:flex;gap:8px;flex-wrap:wrap;align-items:flex-end;">
+        <div class="control-group" id="columnsToggleGroup" style="position:relative;">
+          <label for="columnsToggle">Columns</label>
+          <button class="dropdown-toggle" id="columnsToggle" type="button" disabled>
+            <span id="columnsToggleLabel">Columns</span>
+            <span class="dropdown-caret">▾</span>
+          </button>
+        </div>
         <div class="control-group">
           <label for="rawTablePageSize">Rows per page</label>
           <select id="rawTablePageSize" disabled>
@@ -1011,23 +1279,23 @@
       </div>
     </div>
     <div style="max-height:420px;overflow:auto;margin-top:10px;">
-      <table id="rawTable">
+      <table id="rawTable" class="col-managed-table">
         <colgroup>
           <col data-col="date"><col data-col="employee"><col data-col="project"><col data-col="module">
           <col data-col="nature"><col data-col="ticket"><col data-col="desc"><col data-col="effort">
           <col data-col="status"><col data-col="remarks">
         </colgroup>
         <thead><tr>
-          <th class="sortable" data-col="date">Date <span class="sort-arrow" data-rarrow="date"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="project">Project <span class="sort-arrow" data-rarrow="project"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="module">Module <span class="sort-arrow" data-rarrow="module"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span><span class="col-resize-handle"></span></th>
-          <th data-col="desc">Description<span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span><span class="col-resize-handle"></span></th>
-          <th class="sortable" data-col="status">Status <span class="sort-arrow" data-rarrow="status"></span><span class="col-resize-handle"></span></th>
-          <th data-col="remarks">Remarks<span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="date">Date <span class="sort-arrow" data-rarrow="date"></span><button type="button" class="col-pin-icon" data-col="date" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="employee">Employee <span class="sort-arrow" data-rarrow="employee"></span><button type="button" class="col-pin-icon" data-col="employee" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="project">Project <span class="sort-arrow" data-rarrow="project"></span><button type="button" class="col-pin-icon" data-col="project" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="module">Module <span class="sort-arrow" data-rarrow="module"></span><button type="button" class="col-pin-icon" data-col="module" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="nature">Nature <span class="sort-arrow" data-rarrow="nature"></span><button type="button" class="col-pin-icon" data-col="nature" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="ticket">Ticket <span class="sort-arrow" data-rarrow="ticket"></span><button type="button" class="col-pin-icon" data-col="ticket" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="desc">Description<button type="button" class="col-pin-icon" data-col="desc" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="effort" style="text-align:right;">Min <span class="sort-arrow" data-rarrow="effort"></span><button type="button" class="col-pin-icon" data-col="effort" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th class="sortable" data-col="status">Status <span class="sort-arrow" data-rarrow="status"></span><button type="button" class="col-pin-icon" data-col="status" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
+          <th data-col="remarks">Remarks<button type="button" class="col-pin-icon" data-col="remarks" title="Pin column"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg></button><span class="col-resize-handle"></span></th>
         </tr></thead>
         <tbody id="rawTableBody"></tbody>
       </table>
@@ -1057,6 +1325,19 @@ let ACTIVE_DATA = [];
 let ACTIVE_SOURCE = 'No file loaded yet';
 
 const charts = {};
+
+// theme every Chart.js tooltip to match the app's dark navy / cargo-orange palette
+Chart.defaults.plugins.tooltip.backgroundColor = '#1a1f2b';
+Chart.defaults.plugins.tooltip.titleColor = '#edeff4';
+Chart.defaults.plugins.tooltip.bodyColor = '#edeff4';
+Chart.defaults.plugins.tooltip.borderColor = ORANGE;
+Chart.defaults.plugins.tooltip.borderWidth = 1;
+Chart.defaults.plugins.tooltip.cornerRadius = 7;
+Chart.defaults.plugins.tooltip.padding = 9;
+Chart.defaults.plugins.tooltip.titleFont = { family: "'IBM Plex Mono', monospace", size: 11.5, weight: '600' };
+Chart.defaults.plugins.tooltip.bodyFont = { family: "'IBM Plex Mono', monospace", size: 11.5 };
+Chart.defaults.plugins.tooltip.displayColors = true;
+Chart.defaults.plugins.tooltip.boxPadding = 4;
 
 function sum(arr, fn){ return arr.reduce((a,b)=>a+fn(b),0); }
 function groupSum(arr, keyFn){
@@ -1144,15 +1425,17 @@ function normalizeTicket(raw){
   if(!raw) return null;
   const val = String(raw).trim();
   if(!val) return null;
-  if(val.includes('/')){
-    const parts = val.split('/').map(p=>p.trim()).filter(Boolean);
-    const id = parts.length ? parts[parts.length-1] : val;
-    return { id, system: 'Zoho', display: 'Zoho: ' + id };
+  const hasSlash = val.includes('/');
+  const id = hasSlash ? (val.split('/').map(p=>p.trim()).filter(Boolean).pop() || val) : val;
+  // NAV-prefixed id always wins as Jira, even if it's embedded in a URL (e.g. a zoho.com link ending in .../NAV-1234)
+  if(/^NAV/i.test(id)){
+    return { id, system: 'Jira', display: 'Jira: ' + id };
   }
-  if(/^NAV/i.test(val)){
-    return { id: val, system: 'Jira', display: 'Jira: ' + val };
+  if(hasSlash){
+    const system = /zoho/i.test(val) ? 'Zoho' : 'Jira';
+    return { id, system, display: system + ': ' + id };
   }
-  return { id: val, system: 'Other', display: val };
+  return { id, system: 'Other', display: id };
 }
 
 function csvRowsToRecords(rows, fileName){
@@ -1248,6 +1531,58 @@ function closeAllDropdowns(except){
   document.querySelectorAll('.dropdown-menu').forEach(m=>{ if(m!==except) m.style.display='none'; });
   document.querySelectorAll('.dropdown-toggle').forEach(t=>{ if(t.dataset.menuFor!==((except&&except.id)||'')) t.classList.remove('open'); });
 }
+
+// ---- app-styled tooltip: replaces native browser title tooltips everywhere, including truncated cell text ----
+(function initCustomTooltips(){
+  const tip = document.getElementById('appTooltip');
+  if(!tip) return;
+  let currentTarget = null;
+
+  function positionTooltip(el){
+    const rect = el.getBoundingClientRect();
+    tip.classList.remove('tip-above', 'tip-below');
+    const tipRect = tip.getBoundingClientRect();
+    let top = rect.top - tipRect.height - 10;
+    let below = false;
+    if(top < 8){ top = rect.bottom + 10; below = true; }
+    let left = rect.left;
+    const maxLeft = window.innerWidth - tipRect.width - 12;
+    if(left > maxLeft) left = Math.max(8, maxLeft);
+    if(left < 8) left = 8;
+    tip.style.left = left + 'px';
+    tip.style.top = top + 'px';
+    tip.classList.add(below ? 'tip-below' : 'tip-above');
+  }
+
+  document.addEventListener('mouseover', (e)=>{
+    const el = e.target.closest ? e.target.closest('[title], [data-tooltip-text]') : null;
+    if(!el || el === currentTarget) return;
+    let text = el.getAttribute('title');
+    if(text){
+      el.removeAttribute('title'); // suppress the native browser tooltip, but keep the text for next time
+      el.dataset.tooltipText = text;
+    } else {
+      text = el.dataset.tooltipText;
+    }
+    if(!text) return;
+    currentTarget = el;
+    tip.textContent = text;
+    positionTooltip(el);
+    tip.classList.add('visible');
+  });
+
+  document.addEventListener('mouseout', (e)=>{
+    if(!currentTarget) return;
+    if(!e.relatedTarget || !currentTarget.contains(e.relatedTarget)){
+      tip.classList.remove('visible');
+      currentTarget = null;
+    }
+  });
+
+  window.addEventListener('scroll', ()=>{ tip.classList.remove('visible'); currentTarget = null; }, true);
+  window.addEventListener('resize', ()=>{ tip.classList.remove('visible'); currentTarget = null; });
+})();
+
 document.addEventListener('click', (e)=>{
   const openMenus = document.querySelectorAll('.dropdown-menu[style*="display: block"]');
   openMenus.forEach(menu=>{
@@ -1365,9 +1700,9 @@ function makeMultiSelect({ toggleId, menuId, labelId, allLabel, onChange }){
 }
 
 // ---- employee / project / nature filters ----
-const employeeMS = makeMultiSelect({ toggleId:'employeeFilterToggle', menuId:'employeeFilterMenu', labelId:'employeeFilterLabel', allLabel:'All employees', onChange: renderAll });
-const projectMS = makeMultiSelect({ toggleId:'projectFilterToggle', menuId:'projectFilterMenu', labelId:'projectFilterLabel', allLabel:'All projects', onChange: renderAll });
-const natureMS = makeMultiSelect({ toggleId:'natureFilterToggle', menuId:'natureFilterMenu', labelId:'natureFilterLabel', allLabel:'All natures', onChange: renderAll });
+const employeeMS = makeMultiSelect({ toggleId:'employeeFilterToggle', menuId:'employeeFilterMenu', labelId:'employeeFilterLabel', allLabel:'All employees', onChange: ()=>{ clearSavedFilterSelection(); renderAll(); } });
+const projectMS = makeMultiSelect({ toggleId:'projectFilterToggle', menuId:'projectFilterMenu', labelId:'projectFilterLabel', allLabel:'All projects', onChange: ()=>{ clearSavedFilterSelection(); renderAll(); } });
+const natureMS = makeMultiSelect({ toggleId:'natureFilterToggle', menuId:'natureFilterMenu', labelId:'natureFilterLabel', allLabel:'All natures', onChange: ()=>{ clearSavedFilterSelection(); renderAll(); } });
 const filterNoteEl = document.getElementById('filterNote');
 
 // ---- keyword search: type a word, press Enter to add it as a chip; multiple chips = OR match ----
@@ -1389,6 +1724,7 @@ function renderSearchChips(){
     removeBtn.addEventListener('click', ()=>{
       searchKeywords.splice(i,1);
       renderSearchChips();
+      clearSavedFilterSelection();
       renderAll();
     });
     chip.appendChild(label);
@@ -1403,6 +1739,7 @@ function addSearchKeyword(raw){
   if(searchKeywords.some(k=>k.toLowerCase()===kw.toLowerCase())) return;
   searchKeywords.push(kw);
   renderSearchChips();
+  clearSavedFilterSelection();
   renderAll();
 }
 function getSearchKeywords(){ return searchKeywords.slice(); }
@@ -1484,6 +1821,9 @@ function renderAll(){
     document.getElementById('natureLegend').innerHTML = '';
     document.getElementById('moduleTableBody').innerHTML = '';
     document.getElementById('recentLog').innerHTML = '';
+    document.getElementById('ticketRollupBody').innerHTML = '';
+    document.getElementById('ticketRollupSub').textContent = 'Every ticket\'s total time, span, and current status — click a header to sort';
+    document.getElementById('employeeSnapshotPanel').style.display = 'none';
     document.getElementById('rawTableBody').innerHTML = '';
     document.getElementById('rawTablePageInfo').textContent = '';
     document.getElementById('rawTableSub').textContent = 'Every filtered row, every column — click a header to sort';
@@ -1509,6 +1849,47 @@ function renderAll(){
 
   const ticketCount = data.filter(d=>d.ticket).length;
   document.getElementById('kpiTickets').textContent = ticketCount;
+
+  // ---- employee self-view: personal snapshot shown when exactly one employee is selected ----
+  const snapshotPanel = document.getElementById('employeeSnapshotPanel');
+  const selectedEmployees = employeeMS.getSelected();
+  if(selectedEmployees.length === 1){
+    const empName = selectedEmployees[0];
+    snapshotPanel.style.display = '';
+    document.getElementById('snapshotHeading').textContent = empName + ' — personal snapshot';
+    document.getElementById('snapshotSub').textContent = data.length + ' entries · ' + (summary ? summary : 'all projects/natures in range');
+
+    document.getElementById('snapshotStats').innerHTML = [
+      ['Hours logged', totalHrs.toFixed(1) + ' hrs'],
+      ['Tasks', data.length],
+      ['Completion', compRate.toFixed(0) + '%'],
+      ['Active days', activeDays],
+      ['Avg hrs/day', avgPerDay.toFixed(1)]
+    ].map(([label,val])=>
+      '<div class="snapshot-col" style="min-width:120px;flex:0 0 auto;">'+
+        '<h3>'+label+'</h3>'+
+        '<div style="font-family:\'Space Grotesk\',sans-serif;font-size:22px;font-weight:600;color:var(--text);">'+val+'</div>'+
+      '</div>'
+    ).join('');
+
+    function renderMiniBars(containerId, entries, unit){
+      const container = document.getElementById(containerId);
+      if(!entries.length){ container.innerHTML = '<div style="color:var(--text-dim);font-size:11.5px;">No data</div>'; return; }
+      const max = Math.max(...entries.map(e=>e[1]));
+      container.innerHTML = entries.map(([label,val])=>
+        '<div class="snapshot-bar-row">'+
+          '<span class="snapshot-bar-label" title="'+escHtml(label)+'">'+escHtml(label)+'</span>'+
+          '<span class="snapshot-bar-track"><span class="snapshot-bar-fill" style="width:'+(max?(val/max*100):0)+'%;"></span></span>'+
+          '<span class="snapshot-bar-val">'+val+unit+'</span>'+
+        '</div>'
+      ).join('');
+    }
+    renderMiniBars('snapshotProjects', buildBreakdown(data, 'project', 'hours', 5).entries, 'h');
+    renderMiniBars('snapshotNature', buildBreakdown(data, 'nature', 'hours', 5).entries, 'h');
+    renderMiniBars('snapshotStatus', buildBreakdown(data, 'status', 'count', 6).entries, '');
+  } else {
+    snapshotPanel.style.display = 'none';
+  }
 
   // ---- Project / entity chart (dimension + measure fully adjustable) ----
   const projectSelForLock = projectMS.getSelected();
@@ -1718,6 +2099,7 @@ function renderAll(){
 
   renderModuleTable(data);
   renderRecentLog(data, summary);
+  renderTicketRollup(data);
   renderRawTable(data, summary);
 }
 
@@ -1725,7 +2107,10 @@ function renderAll(){
 let tableSortCol = 'min';
 let tableSortDir = 'desc';
 
+let moduleTableRows = [];
+let moduleTableSourceData = [];
 function renderModuleTable(data){
+  moduleTableSourceData = data;
   const tbody = document.getElementById('moduleTableBody');
   const sub = document.getElementById('tableSub');
   const byModule = {};
@@ -1744,14 +2129,23 @@ function renderModuleTable(data){
     return 0;
   });
   rows = rows.slice(0,25);
+  moduleTableRows = rows;
   tbody.innerHTML = '';
-  rows.forEach(r=>{
+  rows.forEach((r, idx)=>{
     const tr = document.createElement('tr');
-    tr.innerHTML = '<td class="proj">'+r.project+'</td><td>'+r.module+'</td><td class="num">'+Math.round(r.min)+'</td>';
+    tr.dataset.rowIndex = idx;
+    tr.title = 'Double-click to see this entity\'s full history';
+    tr.style.cursor = 'pointer';
+    tr.innerHTML =
+      '<td data-col="project" class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
+      '<td data-col="module" title="'+escHtml(r.module)+'">'+escHtml(r.module)+'</td>'+
+      '<td data-col="min" class="num" title="'+Math.round(r.min)+'">'+Math.round(r.min)+'</td>';
     tbody.appendChild(tr);
   });
+  entitiesTableMgr.reorderDom();
+  entitiesTableMgr.applyPins();
   const summary = filterSummaryText();
-  sub.textContent = summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol;
+  sub.textContent = (summary ? 'Top 25 entries by ' + tableSortCol + ' — ' + summary : 'Top 25 module / feature entries, sorted by ' + tableSortCol) + ' — double-click a row for its history';
 
   document.querySelectorAll('#entitiesTable .sort-arrow').forEach(el=>{
     el.textContent = el.dataset.arrow === tableSortCol ? (tableSortDir==='asc' ? '▲' : '▼') : '';
@@ -1765,6 +2159,28 @@ document.querySelectorAll('#entitiesTable th.sortable').forEach(th=>{
     else { tableSortCol = col; tableSortDir = col === 'min' ? 'desc' : 'asc'; }
     renderModuleTable(getFiltered());
   });
+});
+document.getElementById('moduleTableBody').addEventListener('dblclick', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr || !tr.dataset.rowIndex) return;
+  const row = moduleTableRows[+tr.dataset.rowIndex];
+  if(!row) return;
+  const entries = moduleTableSourceData.filter(d => d.project === row.project && (d.module||'—') === row.module)
+    .slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const hrs = (row.min/60).toFixed(1);
+  const employees = new Set(entries.map(e=>e.employee)).size;
+  const subtitle = entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' · ' + hrs + ' hrs total · ' + employees + ' ' + (employees===1?'person':'people');
+  openHistoryModal(row.project + ' / ' + row.module, subtitle, entries);
+});
+
+document.getElementById('kpiTicketsCard').addEventListener('dblclick', ()=>{
+  const data = getFiltered();
+  const entries = data.filter(d=>d.ticket).slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  if(!entries.length) return;
+  const hrs = (entries.reduce((s,r)=>s+r.effort,0)/60).toFixed(1);
+  const uniqueTickets = new Set(entries.map(e=>e.ticket)).size;
+  const subtitle = entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' across ' + uniqueTickets + ' unique ticket' + (uniqueTickets===1?'':'s') + ' · ' + hrs + ' hrs total';
+  openHistoryModal('All support ticket entries', subtitle, entries);
 });
 
 
@@ -1794,6 +2210,135 @@ function renderRecentLog(data, summary){
 function escHtml(v){
   return String(v==null ? '' : v).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
+// ---- ticket effort rollup: every ticket's total time, span, and current status ----
+function buildTicketRollup(data){
+  if(!data.length) return [];
+  const byTicket = {};
+  data.forEach(r=>{
+    if(!r.ticket) return;
+    if(!byTicket[r.ticket]){
+      byTicket[r.ticket] = { ticket:r.ticketDisplay||r.ticket, system:r.ticketSystem||'Other', minutes:0, count:0, employees:new Set(), first:r.date, last:r.date, lastStatus:r.status, lastDate:r.date };
+    }
+    const t = byTicket[r.ticket];
+    t.minutes += r.effort;
+    t.count += 1;
+    t.employees.add(r.employee);
+    if(r.date < t.first) t.first = r.date;
+    if(r.date > t.last) t.last = r.date;
+    if(r.date >= t.lastDate){ t.lastDate = r.date; t.lastStatus = r.status; }
+  });
+  const maxDate = data.reduce((m,r)=> r.date > m ? r.date : m, data[0].date);
+  return Object.entries(byTicket).map(([rawId, t])=>{
+    const daysOpen = Math.max(0, Math.round((new Date(maxDate+'T00:00:00Z') - new Date(t.first+'T00:00:00Z')) / 86400000));
+    return {
+      rawId, ticket: t.ticket, system: t.system, minutes: t.minutes, count: t.count,
+      employees: Array.from(t.employees).sort().join(', '), employeeCount: t.employees.size,
+      first: t.first, last: t.last, daysOpen, status: t.lastStatus,
+      stale: t.lastStatus !== 'Completed' && daysOpen >= 7
+    };
+  });
+}
+
+let ticketSortCol = 'minutes', ticketSortDir = 'desc';
+let ticketRollupRows = [];
+let ticketRollupSourceData = [];
+function renderTicketRollup(data){
+  ticketRollupSourceData = data;
+  const rows = buildTicketRollup(data);
+  const staleOnly = document.getElementById('staleOnlyToggle').checked;
+  const shown = staleOnly ? rows.filter(r=>r.stale) : rows;
+  shown.sort((a,b)=>{
+    let av = ticketSortCol==='employees' ? a.employeeCount : a[ticketSortCol];
+    let bv = ticketSortCol==='employees' ? b.employeeCount : b[ticketSortCol];
+    if(typeof av === 'string'){ av = av.toLowerCase(); bv = String(bv).toLowerCase(); }
+    if(av<bv) return ticketSortDir==='asc' ? -1 : 1;
+    if(av>bv) return ticketSortDir==='asc' ? 1 : -1;
+    return 0;
+  });
+  ticketRollupRows = shown;
+  const tbody = document.getElementById('ticketRollupBody');
+  tbody.innerHTML = '';
+  shown.forEach((r, idx)=>{
+    const tr = document.createElement('tr');
+    tr.dataset.rowIndex = idx;
+    tr.title = 'Double-click to see this ticket\'s full history';
+    tr.style.cursor = 'pointer';
+    const empLabel = r.employeeCount===1 ? r.employees : r.employeeCount + ' people';
+    tr.innerHTML =
+      '<td data-col="ticket" title="'+escHtml(r.ticket)+'">'+escHtml(r.ticket)+'</td>'+
+      '<td data-col="system" title="'+escHtml(r.system)+'">'+escHtml(r.system)+'</td>'+
+      '<td data-col="minutes" class="num">'+(r.minutes/60).toFixed(1)+'</td>'+
+      '<td data-col="count" class="num">'+r.count+'</td>'+
+      '<td data-col="employees" title="'+escHtml(r.employees)+'">'+escHtml(empLabel)+'</td>'+
+      '<td data-col="first">'+escHtml(r.first)+'</td>'+
+      '<td data-col="last">'+escHtml(r.last)+'</td>'+
+      '<td data-col="daysOpen" class="num">'+r.daysOpen+'</td>'+
+      '<td data-col="status"><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span>'+(r.stale?'<span class="stale-flag">STALE</span>':'')+'</td>';
+    tbody.appendChild(tr);
+  });
+  ticketRollupMgr.reorderDom();
+  ticketRollupMgr.applyPins();
+  document.getElementById('ticketRollupSub').textContent =
+    (rows.length ? shown.length + ' of ' + rows.length + ' tickets' + (staleOnly ? ' (stale filter on)' : '') : 'No ticket references in the current filters') + ' — click a header to sort, double-click a row for its history';
+  document.querySelectorAll('#ticketRollupTable .sort-arrow').forEach(el=>{
+    el.textContent = el.dataset.tarrow === ticketSortCol ? (ticketSortDir==='asc' ? '▲' : '▼') : '';
+  });
+}
+document.querySelectorAll('#ticketRollupTable th.sortable').forEach(th=>{
+  th.addEventListener('click', ()=>{
+    const col = th.dataset.tcol;
+    if(ticketSortCol === col){ ticketSortDir = ticketSortDir === 'asc' ? 'desc' : 'asc'; }
+    else { ticketSortCol = col; ticketSortDir = (col==='minutes'||col==='count'||col==='daysOpen'||col==='employees') ? 'desc' : 'asc'; }
+    renderTicketRollup(getFiltered());
+  });
+});
+document.getElementById('staleOnlyToggle').addEventListener('change', ()=> renderTicketRollup(getFiltered()));
+
+// ---- ticket history modal: double-click a rollup row to see every log entry for that ticket ----
+const ticketHistoryModalEl = document.getElementById('ticketHistoryModal');
+function openHistoryModal(title, subtitle, entries){
+  document.getElementById('ticketHistoryTitle').textContent = title;
+  document.getElementById('ticketHistorySub').textContent = subtitle;
+  const tbody = document.getElementById('ticketHistoryBody');
+  tbody.innerHTML = '';
+  entries.forEach(r=>{
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td data-col="date" title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
+      '<td data-col="employee" title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
+      '<td data-col="project" class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
+      '<td data-col="module" title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
+      '<td data-col="nature" title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
+      '<td data-col="ticket" title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
+      '<td data-col="effort" class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
+      '<td data-col="status" title="'+escHtml(r.status)+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+escHtml(r.status)+'</span></td>'+
+      '<td data-col="desc" title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
+      '<td data-col="remarks" title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
+    tbody.appendChild(tr);
+  });
+  ticketHistoryMgr.reorderDom();
+  ticketHistoryMgr.applyPins();
+  ticketHistoryModalEl.style.display = 'flex';
+}
+function openTicketHistoryModal(rollupRow){
+  const entries = ticketRollupSourceData.filter(d => d.ticket === rollupRow.rawId).slice().sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  const subtitle =
+    entries.length + ' log ' + (entries.length===1?'entry':'entries') + ' · ' + (rollupRow.minutes/60).toFixed(1) + ' hrs total · ' +
+    rollupRow.employeeCount + ' ' + (rollupRow.employeeCount===1?'person':'people') + ' · ' + rollupRow.first + ' → ' + rollupRow.last +
+    (rollupRow.stale ? ' · STALE (open ' + rollupRow.daysOpen + ' days)' : '');
+  openHistoryModal(rollupRow.ticket, subtitle, entries);
+}
+function closeTicketHistoryModal(){ ticketHistoryModalEl.style.display = 'none'; }
+document.getElementById('ticketHistoryCloseBtn').addEventListener('click', closeTicketHistoryModal);
+ticketHistoryModalEl.addEventListener('click', (e)=>{ if(e.target === ticketHistoryModalEl) closeTicketHistoryModal(); });
+
+document.getElementById('ticketRollupBody').addEventListener('dblclick', (e)=>{
+  const tr = e.target.closest('tr');
+  if(!tr || !tr.dataset.rowIndex) return;
+  const row = ticketRollupRows[+tr.dataset.rowIndex];
+  if(row) openTicketHistoryModal(row);
+});
+
 let rawTableSortCol = 'date', rawTableSortDir = 'desc', rawTablePage = 1, lastRawFilterKey = '';
 function renderRawTable(data, summary){
   // reset to page 1 only when the underlying filtered set actually changed (not on sort/pagination clicks)
@@ -1821,18 +2366,20 @@ function renderRawTable(data, summary){
     const tr = document.createElement('tr');
     const statusVal = escHtml(r.status);
     tr.innerHTML =
-      '<td title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
-      '<td title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
-      '<td class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
-      '<td title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
-      '<td title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
-      '<td title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
-      '<td title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
-      '<td class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
-      '<td title="'+statusVal+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+statusVal+'</span></td>'+
-      '<td title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
+      '<td data-col="date" title="'+escHtml(r.dateDisp)+'">'+escHtml(r.dateDisp)+'</td>'+
+      '<td data-col="employee" title="'+escHtml(r.employee)+'">'+escHtml(r.employee)+'</td>'+
+      '<td data-col="project" class="proj" title="'+escHtml(r.project)+'">'+escHtml(r.project)+'</td>'+
+      '<td data-col="module" title="'+escHtml(r.module||'—')+'">'+escHtml(r.module||'—')+'</td>'+
+      '<td data-col="nature" title="'+escHtml(r.nature)+'">'+escHtml(r.nature)+'</td>'+
+      '<td data-col="ticket" title="'+escHtml(r.ticketDisplay||'—')+'">'+escHtml(r.ticketDisplay||'—')+'</td>'+
+      '<td data-col="desc" title="'+escHtml(r.desc||'')+'">'+escHtml(r.desc||'')+'</td>'+
+      '<td data-col="effort" class="num" title="'+Math.round(r.effort)+'">'+Math.round(r.effort)+'</td>'+
+      '<td data-col="status" title="'+statusVal+'"><span class="status-pill '+(statusClass[r.status]||'')+'">'+statusVal+'</span></td>'+
+      '<td data-col="remarks" title="'+escHtml(r.remarks||'')+'">'+escHtml(r.remarks||'')+'</td>';
     tbody.appendChild(tr);
   });
+  rawTableMgr.reorderDom();
+  rawTableMgr.applyPins();
 
   document.getElementById('rawTableSub').textContent = (summary ? sorted.length + ' rows match: ' + summary : sorted.length + ' rows (no facet filters applied)') + ' — click a header to sort';
   document.getElementById('rawTablePageInfo').textContent = sorted.length
@@ -1846,78 +2393,398 @@ function renderRawTable(data, summary){
   });
 }
 
-// ---- raw table column widths: persisted, draggable resize handles ----
-const RAW_TABLE_COLS = ['date','employee','project','module','nature','ticket','desc','effort','status','remarks'];
-const RAW_TABLE_DEFAULT_WIDTHS = {date:95,employee:120,project:110,module:130,nature:110,ticket:130,desc:280,effort:70,status:110,remarks:170};
-const RAW_TABLE_WIDTHS_KEY = 'effortManifestDashboard.rawTableColWidths.v1';
+// ---- generic column manager: resize, show/hide, pin-left/right, and reorder ----
+// Shared by every data table (raw log, entities, ticket rollup, ticket history).
+// Column order/visibility/pin-side/width are each persisted separately per table.
+const PIN_ICON_SVG = '<svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 17v5"/><path d="M9 10.76a2 2 0 0 1-1.11 1.79l-1.78.9A2 2 0 0 0 5 15.24V16a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-.76a2 2 0 0 0-1.11-1.79l-1.78-.9A2 2 0 0 1 15 10.76V7a1 1 0 0 1 1-1 2 2 0 0 0 0-4H8a2 2 0 0 0 0 4 1 1 0 0 1 1 1z"/></svg>';
 
-function loadRawTableWidths(){
+function tcmLoadSet(key){
+  try{ const raw = localStorage.getItem(key); return new Set(raw ? JSON.parse(raw) : []); } catch(e){ return new Set(); }
+}
+function tcmSaveSet(key, set){
+  try{ localStorage.setItem(key, JSON.stringify(Array.from(set))); } catch(e){}
+}
+function tcmLoadObj(key, fallback){
   try{
-    const raw = localStorage.getItem(RAW_TABLE_WIDTHS_KEY);
-    const parsed = raw ? JSON.parse(raw) : {};
-    return Object.assign({}, RAW_TABLE_DEFAULT_WIDTHS, parsed);
-  } catch(e){ return Object.assign({}, RAW_TABLE_DEFAULT_WIDTHS); }
+    const raw = localStorage.getItem(key);
+    if(!raw) return Object.assign({}, fallback);
+    const parsed = JSON.parse(raw);
+    if(Array.isArray(parsed)){ const map = {}; parsed.forEach(c=>map[c]='left'); return map; } // legacy pin format
+    return parsed && typeof parsed === 'object' ? Object.assign({}, fallback, parsed) : Object.assign({}, fallback);
+  } catch(e){ return Object.assign({}, fallback); }
 }
-function saveRawTableWidths(){
-  try{ localStorage.setItem(RAW_TABLE_WIDTHS_KEY, JSON.stringify(rawTableWidths)); } catch(e){}
+function tcmSaveObj(key, obj){
+  try{ localStorage.setItem(key, JSON.stringify(obj)); } catch(e){}
 }
-let rawTableWidths = loadRawTableWidths();
+function tcmLoadOrder(key, fallbackOrder){
+  try{
+    const raw = localStorage.getItem(key);
+    if(!raw) return fallbackOrder.slice();
+    const parsed = JSON.parse(raw);
+    return Array.isArray(parsed) && parsed.length ? parsed : fallbackOrder.slice();
+  } catch(e){ return fallbackOrder.slice(); }
+}
+function tcmSaveOrder(key, order){
+  try{ localStorage.setItem(key, JSON.stringify(order)); } catch(e){}
+}
 
-function applyRawTableColWidths(){
-  RAW_TABLE_COLS.forEach(col=>{
-    const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
-    if(colEl) colEl.style.width = rawTableWidths[col] + 'px';
-  });
-}
-applyRawTableColWidths();
+// opts: {tableId, cols:[{key,label}], defaultWidths:{key:px}, menuId, toggleId, toggleLabelId,
+//        widthsKey, hiddenKey, pinnedKey, orderKey}
+function createColumnManager(opts){
+  const keys = opts.cols.map(c=>c.key);
+  const labels = {};
+  opts.cols.forEach(c=>{ labels[c.key] = c.label; });
+  const table = document.getElementById(opts.tableId);
 
-document.querySelectorAll('#rawTable .col-resize-handle').forEach(handle=>{
-  handle.addEventListener('click', e=>e.stopPropagation());
-  handle.addEventListener('mousedown', (e)=>{
-    e.preventDefault();
-    e.stopPropagation();
-    const th = handle.closest('th');
-    const col = th.dataset.col;
-    const startX = e.clientX;
-    const startWidth = rawTableWidths[col] || th.offsetWidth;
-    handle.classList.add('active');
-    function onMove(ev){
-      const newWidth = Math.max(50, startWidth + (ev.clientX - startX));
-      rawTableWidths[col] = newWidth;
-      const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
-      if(colEl) colEl.style.width = newWidth + 'px';
+  const widths = tcmLoadObj(opts.widthsKey, opts.defaultWidths);
+  const hidden = tcmLoadSet(opts.hiddenKey);
+  const pinned = tcmLoadObj(opts.pinnedKey, {});
+  let order = tcmLoadOrder(opts.orderKey, keys).filter(k => keys.includes(k));
+  keys.forEach(k=>{ if(!order.includes(k)) order.push(k); }); // pick up any newly added columns
+
+  function persistWidths(){ tcmSaveObj(opts.widthsKey, widths); }
+  function persistHidden(){ tcmSaveSet(opts.hiddenKey, hidden); }
+  function persistPinned(){ tcmSaveObj(opts.pinnedKey, pinned); }
+  function persistOrder(){ tcmSaveOrder(opts.orderKey, order); }
+
+  function applyWidths(){
+    keys.forEach(k=>{
+      const col = table.querySelector(':scope colgroup col[data-col="'+k+'"]');
+      if(col) col.style.width = (widths[k] || opts.defaultWidths[k] || 120) + 'px';
+    });
+  }
+  function applyVisibility(){
+    keys.forEach(k=>{
+      const col = table.querySelector(':scope colgroup col[data-col="'+k+'"]');
+      if(col) col.style.display = hidden.has(k) ? 'none' : '';
+    });
+  }
+  function reorderDom(){
+    const colgroup = table.querySelector(':scope colgroup');
+    if(colgroup){ order.forEach(k=>{ const c = colgroup.querySelector('col[data-col="'+k+'"]'); if(c) colgroup.appendChild(c); }); }
+    const headRow = table.querySelector(':scope thead tr');
+    if(headRow){ order.forEach(k=>{ const th = headRow.querySelector(':scope > th[data-col="'+k+'"]'); if(th) headRow.appendChild(th); }); }
+    table.querySelectorAll(':scope tbody > tr').forEach(tr=>{
+      order.forEach(k=>{ const td = tr.querySelector(':scope > td[data-col="'+k+'"]'); if(td) tr.appendChild(td); });
+    });
+  }
+  function applyPins(){
+    let leftAcc = 0;
+    const leftOffset = {};
+    order.forEach(k=>{
+      if(pinned[k]==='left' && !hidden.has(k)){ leftOffset[k]=leftAcc; leftAcc += (widths[k]||100); }
+    });
+    let rightAcc = 0;
+    const rightOffset = {};
+    for(let i=order.length-1; i>=0; i--){
+      const k = order[i];
+      if(pinned[k]==='right' && !hidden.has(k)){ rightOffset[k]=rightAcc; rightAcc += (widths[k]||100); }
     }
-    function onUp(){
-      document.removeEventListener('mousemove', onMove);
-      document.removeEventListener('mouseup', onUp);
-      handle.classList.remove('active');
-      saveRawTableWidths();
+    order.forEach((k, idx)=>{
+      const dir = hidden.has(k) ? null : pinned[k];
+      const isLastLeft = dir==='left' && order.slice(idx+1).every(c => pinned[c]!=='left' || hidden.has(c));
+      const isFirstRight = dir==='right' && order.slice(0, idx).every(c => pinned[c]!=='right' || hidden.has(c));
+      const cells = table.querySelectorAll('th[data-col="'+k+'"], td[data-col="'+k+'"]');
+      cells.forEach(cell=>{
+        cell.style.left = '';
+        cell.style.right = '';
+        cell.classList.remove('pinned-col', 'pinned-col-edge-left', 'pinned-col-edge-right');
+        if(dir==='left'){
+          cell.style.left = leftOffset[k] + 'px';
+          cell.classList.add('pinned-col');
+          if(isLastLeft) cell.classList.add('pinned-col-edge-left');
+        } else if(dir==='right'){
+          cell.style.right = rightOffset[k] + 'px';
+          cell.classList.add('pinned-col');
+          if(isFirstRight) cell.classList.add('pinned-col-edge-right');
+        }
+      });
+    });
+  }
+  function updatePinIcon(icon, k){
+    const dir = pinned[k];
+    icon.classList.remove('pin-left', 'pin-right');
+    if(dir === 'left'){ icon.classList.add('pin-left'); icon.title = 'Pinned left — click to pin right instead'; }
+    else if(dir === 'right'){ icon.classList.add('pin-right'); icon.title = 'Pinned right — click to unpin'; }
+    else { icon.title = 'Click to pin this column to the left'; }
+  }
+  function cyclePin(k){
+    if(pinned[k] === 'left') pinned[k] = 'right';
+    else if(pinned[k] === 'right') delete pinned[k];
+    else pinned[k] = 'left';
+    persistPinned();
+    applyPins();
+    const headerIcon = table.querySelector('thead .col-pin-icon[data-col="'+k+'"]');
+    if(headerIcon) updatePinIcon(headerIcon, k);
+  }
+  function wirePinIcons(){
+    table.querySelectorAll(':scope thead .col-pin-icon').forEach(icon=>{
+      const k = icon.dataset.col;
+      updatePinIcon(icon, k);
+      icon.addEventListener('click', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        cyclePin(k);
+        updateToggleLabel();
+        buildMenu();
+      });
+    });
+  }
+  function wireResizeHandles(){
+    table.querySelectorAll(':scope thead .col-resize-handle').forEach(handle=>{
+      handle.addEventListener('click', e=>e.stopPropagation());
+      handle.addEventListener('mousedown', (e)=>{
+        e.preventDefault();
+        e.stopPropagation();
+        const th = handle.closest('th');
+        const k = th.dataset.col;
+        const startX = e.clientX;
+        const startWidth = widths[k] || th.offsetWidth;
+        handle.classList.add('active');
+        function onMove(ev){
+          const newWidth = Math.max(50, startWidth + (ev.clientX - startX));
+          widths[k] = newWidth;
+          const colEl = table.querySelector(':scope colgroup col[data-col="'+k+'"]');
+          if(colEl) colEl.style.width = newWidth + 'px';
+          applyPins();
+        }
+        function onUp(){
+          document.removeEventListener('mousemove', onMove);
+          document.removeEventListener('mouseup', onUp);
+          handle.classList.remove('active');
+          persistWidths();
+        }
+        document.addEventListener('mousemove', onMove);
+        document.addEventListener('mouseup', onUp);
+      });
+      handle.addEventListener('touchstart', (e)=>{
+        e.stopPropagation();
+        const th = handle.closest('th');
+        const k = th.dataset.col;
+        const startX = e.touches[0].clientX;
+        const startWidth = widths[k] || th.offsetWidth;
+        handle.classList.add('active');
+        function onMove(ev){
+          const newWidth = Math.max(50, startWidth + (ev.touches[0].clientX - startX));
+          widths[k] = newWidth;
+          const colEl = table.querySelector(':scope colgroup col[data-col="'+k+'"]');
+          if(colEl) colEl.style.width = newWidth + 'px';
+          applyPins();
+        }
+        function onUp(){
+          document.removeEventListener('touchmove', onMove);
+          document.removeEventListener('touchend', onUp);
+          handle.classList.remove('active');
+          persistWidths();
+        }
+        document.addEventListener('touchmove', onMove, {passive:true});
+        document.addEventListener('touchend', onUp);
+      }, {passive:true});
+    });
+  }
+  function updateToggleLabel(){
+    const labelEl = document.getElementById(opts.toggleLabelId);
+    if(!labelEl) return;
+    const shown = keys.length - hidden.size;
+    labelEl.textContent = hidden.size ? (shown + '/' + keys.length + ' shown') : 'Columns';
+  }
+  // sets a brand new column order (used by drag-to-reorder in the columns popup)
+  function setOrder(newOrder){
+    const cleaned = newOrder.filter(k => keys.includes(k));
+    keys.forEach(k=>{ if(!cleaned.includes(k)) cleaned.push(k); });
+    order = cleaned;
+    persistOrder();
+    reorderDom();
+    applyPins();
+  }
+  // builds the draggable row list inside the shared columns-manager popup
+  function buildList(container){
+    container.innerHTML = '';
+    let draggingRow = null;
+
+    function currentDomOrder(){
+      return Array.from(container.querySelectorAll(':scope > .col-manager-row')).map(r=>r.dataset.col);
     }
-    document.addEventListener('mousemove', onMove);
-    document.addEventListener('mouseup', onUp);
-  });
-  handle.addEventListener('touchstart', (e)=>{
-    e.stopPropagation();
-    const th = handle.closest('th');
-    const col = th.dataset.col;
-    const startX = e.touches[0].clientX;
-    const startWidth = rawTableWidths[col] || th.offsetWidth;
-    handle.classList.add('active');
-    function onMove(ev){
-      const newWidth = Math.max(50, startWidth + (ev.touches[0].clientX - startX));
-      rawTableWidths[col] = newWidth;
-      const colEl = document.querySelector('#rawTable col[data-col="'+col+'"]');
-      if(colEl) colEl.style.width = newWidth + 'px';
+    function clearDragOverStyles(){
+      container.querySelectorAll('.col-manager-row').forEach(r=>{ r.classList.remove('drag-over-top','drag-over-bottom'); });
     }
-    function onUp(){
-      document.removeEventListener('touchmove', onMove);
-      document.removeEventListener('touchend', onUp);
-      handle.classList.remove('active');
-      saveRawTableWidths();
+    function onHandlePointerDown(e, row){
+      e.preventDefault();
+      draggingRow = row;
+      row.classList.add('dragging');
+      const handle = e.currentTarget;
+      try{ handle.setPointerCapture(e.pointerId); } catch(err){}
+      function onMove(ev){
+        if(!draggingRow) return;
+        clearDragOverStyles();
+        const rows = Array.from(container.querySelectorAll(':scope > .col-manager-row')).filter(r=>r!==draggingRow);
+        let target = null, before = true;
+        for(const r of rows){
+          const rect = r.getBoundingClientRect();
+          const mid = rect.top + rect.height/2;
+          if(ev.clientY < mid){ target = r; before = true; break; }
+          target = r; before = false;
+        }
+        if(target){
+          if(before) target.classList.add('drag-over-top'); else target.classList.add('drag-over-bottom');
+          container.insertBefore(draggingRow, before ? target : target.nextSibling);
+        }
+      }
+      function onUp(ev){
+        document.removeEventListener('pointermove', onMove);
+        document.removeEventListener('pointerup', onUp);
+        try{ handle.releasePointerCapture(ev.pointerId); } catch(err){}
+        clearDragOverStyles();
+        if(draggingRow) draggingRow.classList.remove('dragging');
+        if(draggingRow) setOrder(currentDomOrder());
+        draggingRow = null;
+      }
+      document.addEventListener('pointermove', onMove);
+      document.addEventListener('pointerup', onUp);
     }
-    document.addEventListener('touchmove', onMove, {passive:true});
-    document.addEventListener('touchend', onUp);
-  }, {passive:true});
+
+    order.forEach(k=>{
+      const row = document.createElement('div');
+      row.className = 'col-manager-row';
+      row.dataset.col = k;
+
+      const handle = document.createElement('span');
+      handle.className = 'col-drag-handle';
+      handle.title = 'Drag to reorder';
+      handle.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.6"/><circle cx="15" cy="6" r="1.6"/><circle cx="9" cy="12" r="1.6"/><circle cx="15" cy="12" r="1.6"/><circle cx="9" cy="18" r="1.6"/><circle cx="15" cy="18" r="1.6"/></svg>';
+      handle.addEventListener('pointerdown', (e)=>onHandlePointerDown(e, row));
+
+      const cb = document.createElement('input');
+      cb.type = 'checkbox';
+      cb.checked = !hidden.has(k);
+      cb.addEventListener('change', ()=>{
+        if(cb.checked) hidden.delete(k); else hidden.add(k);
+        persistHidden();
+        applyVisibility();
+        applyPins();
+        updateToggleLabel();
+      });
+
+      const label = document.createElement('span');
+      label.className = 'dropdown-item-label';
+      label.textContent = labels[k];
+
+      const pinBtn = document.createElement('button');
+      pinBtn.type = 'button';
+      pinBtn.className = 'col-pin-icon col-pin-icon-menu';
+      pinBtn.dataset.col = k;
+      pinBtn.title = 'Pin column';
+      pinBtn.innerHTML = PIN_ICON_SVG;
+      updatePinIcon(pinBtn, k);
+      pinBtn.addEventListener('click', (e)=>{
+        e.stopPropagation();
+        cyclePin(k);
+        updatePinIcon(pinBtn, k);
+      });
+
+      row.appendChild(handle);
+      row.appendChild(cb);
+      row.appendChild(label);
+      row.appendChild(pinBtn);
+      container.appendChild(row);
+    });
+  }
+  function wireToggle(){
+    const toggleEl = document.getElementById(opts.toggleId);
+    if(!toggleEl) return;
+    toggleEl.addEventListener('click', (e)=>{
+      if(toggleEl.disabled) return;
+      e.stopPropagation();
+      openColumnsManager(api, opts.title || 'Manage columns', toggleEl);
+    });
+  }
+
+  wirePinIcons();
+  wireResizeHandles();
+  applyWidths();
+  applyVisibility();
+  reorderDom();
+  applyPins();
+  updateToggleLabel();
+  wireToggle();
+
+  const api = { reorderDom, applyPins, applyVisibility, buildList };
+  return api;
+}
+
+// ---- shared "manage columns" popup: one modal reused by every table, with drag-to-reorder rows ----
+let activeColumnsToggleEl = null;
+function openColumnsManager(mgr, title, toggleEl){
+  activeColumnsToggleEl = toggleEl || null;
+  if(activeColumnsToggleEl) activeColumnsToggleEl.classList.add('open');
+  document.getElementById('columnsManagerTitle').textContent = title;
+  mgr.buildList(document.getElementById('columnsManagerList'));
+  document.getElementById('columnsManagerModal').style.display = 'flex';
+}
+function closeColumnsManager(){
+  document.getElementById('columnsManagerModal').style.display = 'none';
+  if(activeColumnsToggleEl) activeColumnsToggleEl.classList.remove('open');
+  activeColumnsToggleEl = null;
+}
+document.getElementById('columnsManagerCloseBtn').addEventListener('click', closeColumnsManager);
+document.getElementById('columnsManagerModal').addEventListener('click', (e)=>{
+  if(e.target === document.getElementById('columnsManagerModal')) closeColumnsManager();
+});
+
+const rawTableMgr = createColumnManager({
+  tableId: 'rawTable',
+  cols: [
+    {key:'date', label:'Date'}, {key:'employee', label:'Employee'}, {key:'project', label:'Project'},
+    {key:'module', label:'Module'}, {key:'nature', label:'Nature'}, {key:'ticket', label:'Ticket'},
+    {key:'desc', label:'Description'}, {key:'effort', label:'Min'}, {key:'status', label:'Status'}, {key:'remarks', label:'Remarks'}
+  ],
+  defaultWidths: {date:95,employee:120,project:110,module:130,nature:110,ticket:130,desc:280,effort:70,status:110,remarks:170},
+  toggleId: 'columnsToggle', toggleLabelId: 'columnsToggleLabel', title: 'Full log — manage columns',
+  widthsKey: 'effortManifestDashboard.rawTableColWidths.v1',
+  hiddenKey: 'effortManifestDashboard.rawTableHiddenCols.v1',
+  pinnedKey: 'effortManifestDashboard.rawTablePinnedDir.v1',
+  orderKey: 'effortManifestDashboard.rawTableColOrder.v1'
+});
+
+const entitiesTableMgr = createColumnManager({
+  tableId: 'entitiesTable',
+  cols: [{key:'project', label:'Project'}, {key:'module', label:'Module'}, {key:'min', label:'Min'}],
+  defaultWidths: {project:150, module:190, min:100},
+  toggleId: 'entitiesColumnsToggle', toggleLabelId: 'entitiesColumnsToggleLabel', title: 'Top entities — manage columns',
+  widthsKey: 'effortManifestDashboard.entitiesTable.colWidths.v1',
+  hiddenKey: 'effortManifestDashboard.entitiesTable.hiddenCols.v1',
+  pinnedKey: 'effortManifestDashboard.entitiesTable.pinnedDir.v1',
+  orderKey: 'effortManifestDashboard.entitiesTable.colOrder.v1'
+});
+
+const ticketRollupMgr = createColumnManager({
+  tableId: 'ticketRollupTable',
+  cols: [
+    {key:'ticket', label:'Ticket'}, {key:'system', label:'System'}, {key:'minutes', label:'Hours'},
+    {key:'count', label:'Entries'}, {key:'employees', label:'Employees'}, {key:'first', label:'First logged'},
+    {key:'last', label:'Last logged'}, {key:'daysOpen', label:'Days open'}, {key:'status', label:'Latest status'}
+  ],
+  defaultWidths: {ticket:140, system:110, minutes:90, count:90, employees:160, first:115, last:115, daysOpen:100, status:150},
+  toggleId: 'rollupColumnsToggle', toggleLabelId: 'rollupColumnsToggleLabel', title: 'Ticket rollup — manage columns',
+  widthsKey: 'effortManifestDashboard.ticketRollupTable.colWidths.v1',
+  hiddenKey: 'effortManifestDashboard.ticketRollupTable.hiddenCols.v1',
+  pinnedKey: 'effortManifestDashboard.ticketRollupTable.pinnedDir.v1',
+  orderKey: 'effortManifestDashboard.ticketRollupTable.colOrder.v1'
+});
+
+const ticketHistoryMgr = createColumnManager({
+  tableId: 'ticketHistoryTable',
+  cols: [
+    {key:'date', label:'Date'}, {key:'employee', label:'Employee'}, {key:'project', label:'Project'},
+    {key:'module', label:'Module'}, {key:'nature', label:'Nature'}, {key:'ticket', label:'Ticket'},
+    {key:'effort', label:'Min'}, {key:'status', label:'Status'}, {key:'desc', label:'Description'}, {key:'remarks', label:'Remarks'}
+  ],
+  defaultWidths: {date:95, employee:120, project:110, module:130, nature:110, ticket:130, effort:70, status:110, desc:240, remarks:170},
+  toggleId: 'historyColumnsToggle', toggleLabelId: 'historyColumnsToggleLabel', title: 'Ticket history — manage columns',
+  widthsKey: 'effortManifestDashboard.ticketHistoryTable.colWidths.v1',
+  hiddenKey: 'effortManifestDashboard.ticketHistoryTable.hiddenCols.v1',
+  pinnedKey: 'effortManifestDashboard.ticketHistoryTable.pinnedDir.v1',
+  orderKey: 'effortManifestDashboard.ticketHistoryTable.colOrder.v1'
 });
 
 document.querySelectorAll('#rawTable th.sortable').forEach(th=>{
@@ -1994,12 +2861,13 @@ function applyQuickRange(preset){
   }
   dateFromEl.value = from < minDate ? minDate : from;
   dateToEl.value = to;
+  clearSavedFilterSelection();
   renderAll();
 }
 quickRangeEl.addEventListener('change', ()=> applyQuickRange(quickRangeEl.value));
-dateFromEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; renderAll(); });
-dateToEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; renderAll(); });
-document.getElementById('resetRangeBtn').addEventListener('click', ()=>{ quickRangeEl.value = 'custom'; setDateBoundsFromData(ACTIVE_DATA); renderAll(); });
+dateFromEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; clearSavedFilterSelection(); renderAll(); });
+dateToEl.addEventListener('change', ()=>{ quickRangeEl.value = 'custom'; clearSavedFilterSelection(); renderAll(); });
+document.getElementById('resetRangeBtn').addEventListener('click', ()=>{ quickRangeEl.value = 'custom'; setDateBoundsFromData(ACTIVE_DATA); clearSavedFilterSelection(); renderAll(); });
 
 const trendGranularityEl = document.getElementById('trendGranularity');
 trendGranularityEl.addEventListener('change', renderAll);
@@ -2018,6 +2886,7 @@ const statusChartMeasureEl = document.getElementById('statusChartMeasure');
 document.getElementById('resetFiltersBtn').addEventListener('click', ()=>{
   employeeMS.clear(); projectMS.clear(); natureMS.clear();
   clearSearchKeywords();
+  clearSavedFilterSelection();
   renderAll();
 });
 
@@ -2047,6 +2916,15 @@ savedFiltersToggleEl.dataset.menuFor = 'savedFiltersMenu';
 const savedFiltersToggleLabelEl = document.getElementById('savedFiltersToggleLabel');
 const savedFiltersMenuEl = document.getElementById('savedFiltersMenu');
 let selectedSavedFilterName = '';
+
+// Any change made to the actual filters (employee/project/nature/search/date range) after a saved
+// filter was applied means the current view no longer matches that preset, so the button should
+// stop claiming to represent it and go back to its neutral "Saved Filters" label.
+function clearSavedFilterSelection(){
+  if(!selectedSavedFilterName) return;
+  selectedSavedFilterName = '';
+  savedFiltersToggleLabelEl.textContent = 'Saved Filters';
+}
 
 function currentFilterState(){
   return {
@@ -2117,7 +2995,7 @@ function renderSavedFiltersMenu(){
       persistSavedFilters();
       if(selectedSavedFilterName === f.name){
         selectedSavedFilterName = '';
-        savedFiltersToggleLabelEl.textContent = '— Select a saved filter —';
+        savedFiltersToggleLabelEl.textContent = 'Saved Filters';
       }
       renderSavedFiltersMenu();
       savedFilterNoteEl.textContent = 'Deleted "' + f.name + '".';
@@ -2338,7 +3216,8 @@ const CONTROLS_TO_GATE = [
   'trendGranularity','exportCsvBtn','exportPngBtn','exportPdfBtn',
   'projectChartDim','projectChartMeasure','natureChartDim','natureChartMeasure',
   'trendMetric','trendSplitBy','statusChartDim','statusChartMeasure',
-  'rawTablePageSize','rawTableExportBtn'
+  'rawTablePageSize','rawTableExportBtn','columnsToggle','staleOnlyToggle',
+  'entitiesColumnsToggle','rollupColumnsToggle','historyColumnsToggle'
 ];
 function setControlsEnabled(enabled){
   CONTROLS_TO_GATE.forEach(id=>{
@@ -2466,11 +3345,84 @@ document.getElementById('csvFileInput').addEventListener('change', function(e){
   e.target.value = '';
 });
 
-// ---- initial render (empty until a CSV is uploaded) ----
+// ---- live data source: pull directly from Task Time Logger's browser storage ----
+// Task Time Logger (tasklogger.html) keeps its data in localStorage under 'ttl_log' /
+// 'ttl_tasks'. Since both pages are served from the same origin, this dashboard can read
+// that storage directly with no CSV export/import step required.
+const LOGGER_SOURCE_NAME = 'Task Time Logger (live)';
+
+function loadFromTaskLogger(showFeedback){
+  let entries, taskList;
+  try{ entries = JSON.parse(localStorage.getItem('ttl_log') || '[]'); }catch(e){ entries = []; }
+  try{ taskList = JSON.parse(localStorage.getItem('ttl_tasks') || '[]'); }catch(e){ taskList = []; }
+
+  if(!Array.isArray(entries) || entries.length === 0){
+    if(showFeedback) showUploadErrorModal('No entries found yet in Task Time Logger\'s browser storage. Log some time over there, then hit "Refresh from Logger" here.');
+    return false;
+  }
+
+  const records = [];
+  entries.forEach(e=>{
+    if(!e || !e.startTs) return;
+    const task = (taskList || []).find(t => t.id === e.taskId);
+    let effortMin;
+    if(e.durationSecs != null){
+      effortMin = e.durationSecs / 60;
+    } else if(task){
+      // still-running entry: derive live elapsed minutes from the task's own timer state
+      let accumMs = task.accumulatedMs || 0;
+      if(task.status === 'running' && task.segmentStart) accumMs += Date.now() - task.segmentStart;
+      effortMin = accumMs / 60000;
+    } else {
+      effortMin = 0;
+    }
+    if(!isFinite(effortMin) || effortMin <= 0) return;
+
+    const d = new Date(e.startTs);
+    const ticketInfo = normalizeTicket(e.ticket);
+    records.push({
+      date: d.toISOString().slice(0,10),
+      dateDisp: d.toLocaleDateString('en-GB', {day:'2-digit', month:'short', timeZone:'UTC'}),
+      employee: e.employee || 'Unspecified',
+      project: e.project || 'UNKNOWN',
+      module: e.module || '',
+      nature: e.nature || 'Unspecified',
+      ticket: ticketInfo ? ticketInfo.id : null,
+      ticketDisplay: ticketInfo ? ticketInfo.display : null,
+      ticketSystem: ticketInfo ? ticketInfo.system : null,
+      desc: e.description || e.heading || '',
+      effort: effortMin,
+      status: e.taskStatus || (task ? task.status : '') || 'Unspecified',
+      remarks: e.remark || null,
+      sourceFile: LOGGER_SOURCE_NAME
+    });
+  });
+
+  if(!records.length){
+    if(showFeedback) showUploadErrorModal('Task Time Logger has entries, but none have any effort minutes yet.');
+    return false;
+  }
+
+  records.sort((a,b)=> a.date < b.date ? -1 : a.date > b.date ? 1 : 0);
+  addOrReplaceFile(LOGGER_SOURCE_NAME, records);
+  refreshAfterFileChange();
+  return true;
+}
+
+document.getElementById('refreshFromLoggerBtn').addEventListener('click', ()=> loadFromTaskLogger(true));
+
+// Auto-refresh if Task Time Logger (open in another tab, same browser) writes new data —
+// the native 'storage' event fires on every other same-origin tab automatically.
+window.addEventListener('storage', (ev)=>{
+  if(ev.key === 'ttl_log' || ev.key === 'ttl_tasks') loadFromTaskLogger(false);
+});
+
+// ---- initial render ----
 setControlsEnabled(false);
 populateFacetFilters(ACTIVE_DATA);
 setDateBoundsFromData(ACTIVE_DATA);
 renderAll();
+loadFromTaskLogger(false); // pull in whatever Task Time Logger already has, if anything
 </script>
 </body>
 </html>
